@@ -27,3 +27,7 @@ Recognized URL forms with query strings fall back to manual handling. Known cano
 The live API returned expected chapter metadata to a direct HTTP client. In headless Chrome for Testing, the MangaDex API returned HTTP 403 with a bot challenge and the popup fell back to manual entry. Successful live resolution in an interactive browser remains unverified.
 
 MangaDex chapter metadata is provided by [MangaDex](https://mangadex.org/). The resolver requests the chapter entity and requires exactly one matching manga relationship. [MangaDex API specification](https://api.mangadex.org/docs/static/api.yaml).
+
+## Private test candidate
+
+Chrome for Testing exercised the 0.2 options page, folder proposal, mock folder setup, legacy progress operations and profile-local disconnect. The managed Drive handler was tested against synthetic Drive and Sheets responses. Live managed-folder provisioning and FAB installation from the private store listing remain unverified.

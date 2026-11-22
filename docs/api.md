@@ -31,3 +31,12 @@ IDs occupy reading G and todos F only on enrolled or created rows. The UUID is p
 LockService serializes requests in one Apps Script project. The service re-reads rows and compares revisions before preparing localized updates. Only literal value fields are updated. Formulas, rich text and linked target cells that cannot be edited safely cause a conflict. The same Sheets batch includes the audit and any inbox append. If the response is lost, retry the identical command; the committed log entry is the recovery record. Preserve the audit log and disable writes before recovering a lost or altered log. [LockService](https://developers.google.com/apps-script/reference/lock/lock-service) · [Sheets batchUpdate reference](https://developers.google.com/workspace/sheets/api/reference/rest/v4/spreadsheets/batchUpdate).
 
 Shares, independent scripts, human edits and imports can bypass the lock. Sheets does not offer a compare-and-swap condition in this batch API. A move or edit between read and batch can invalidate the checked row location. Run a single writer with other changes paused. A process crash or connection drop can leave the browser unsure whether the server committed, and concurrent manual edits are outside the supported safety model.
+
+## Managed Drive setup
+
+Two token-authenticated actions are available before a workbook is bound:
+
+- `folders` returns `{ status: "ready", folders }`. The field is null on a deployment with a bound workbook or with managed setup disabled.
+- `useFolder` takes `folder` and `name`. Use a returned folder ID or `new` with a name. Setup requires `MANAGED_DRIVE=yes`, no `SPREADSHEET_ID`, and disabled writes. The server binds the workbook after initializing and verifying its schema.
+
+If the setup response is lost, return to settings and reconnect to the same deployment. A bound workbook is reused. An unfinished setup can be retried by choosing the existing folder. The service refuses ambiguous matching workbooks.

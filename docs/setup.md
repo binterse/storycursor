@@ -30,3 +30,11 @@ If your organization blocks anonymous transport to web apps, this build cannot c
 5. Do not point this deployment at the real workbook. Production use needs explicit authorization, a verified backup, live staging evidence, and review of an exclusive-writer and migration plan. Use a separate deployment and token for any approved environment.
 
 To pause or roll back, disable service writes and revoke the deployment or rotate the token as needed. Preserve the audit and inbox tabs. Restore a reviewed copy or use Google Sheets version history if necessary, after comparing changes made since the backup. Use the extension's **Restore** action for eligible individual field changes. Creation and inbox records do not have an automatic restore.
+
+## Optional managed Drive folder
+
+For a fresh test deployment, set `MANAGED_DRIVE=yes` and `EXCLUSIVE_WRITER=no`, leaving `SPREADSHEET_ID` unset. Enable the advanced Drive service and authorize the `drive.file` scope in that deployment. Standard Google Cloud projects also need the Drive API enabled. Use a separate project from any deployment that already points to a workbook.
+
+In StoryCursor select **Connect Google Drive**, enter the test deployment URL and token, then choose a folder. StoryCursor suggests an app-accessible folder named **StoryCursor** or offers **StoryCursor (create new)**. You can select another visible folder or change the new name. Drive only returns folders the deployment has access to under its file scope. An existing folder that has never been granted to the app may be absent. This build uses service credentials in the extension, and direct Google sign-in and the whole-Drive file picker are still pending.
+
+On confirmation, the service creates or reopens its tagged StoryCursor workbook in the selected folder and initializes its tabs. It leaves pre-existing workbooks in place. A deployment that already has a `SPREADSHEET_ID` continues to use it. Enable exclusive staging writes separately once you have reviewed the resulting folder and workbook.

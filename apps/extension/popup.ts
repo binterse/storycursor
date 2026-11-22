@@ -3,9 +3,15 @@ import { canonicalSeries, extract } from '../../packages/site-adapters/extract';
 import { chapterId, resolveChapter } from '../../packages/site-adapters/mangadex';
 import { aliases, candidates, parseProgress, sourceKey, titleKey, type Entry, type Mapping } from '../../packages/core/domain';
 import type { Command, CommandName } from '../../packages/core/commands';
-import { config, queue, queueKey, remote, validConfig, type Config, type QueueItem } from './sync';
+import { config, queue, queueKey, remote, type Config, type QueueItem } from './sync';
 
 import { action, app, details, element, errorMessage, input, report } from '../../packages/ui/popup';
+const header = document.createElement('header');
+const heading = app.querySelector('h1')!;
+heading.before(header);
+header.append(heading);
+const settings = action('⚙', () => chrome.runtime.openOptionsPage(), header);
+settings.setAttribute('aria-label', 'Settings');
 const workspace = element('section');
 const history = details('Operation queue');
 const historyList = element('div', '', history);
@@ -42,20 +48,6 @@ async function renderQueue() {
   }
 }
 
-const settings = details('Google Sheets connection');
-const endpoint = input('Apps Script deployment URL', settings, '', 'url');
-const token = input('Service token', settings, '', 'password');
-action('Connect', async () => {
-  const connection: Config = { endpoint: endpoint.value.trim(), token: token.value.trim() };
-  if (!validConfig(connection)) throw new Error('Enter an Apps Script /exec URL and a 64-character hex token.');
-  report('Checking connection…');
-  connection.binding = await remote(connection).check();
-  await chrome.storage.local.set({ connection });
-  token.value = '';
-  report('Connected.');
-  await renderWorkspace();
-}, settings);
-
 async function submit(connection: Config, type: CommandName, entry: Entry | undefined, value: string, confirmed?: boolean) {
   const operationId = crypto.randomUUID();
   const command: Command = { operationId, type, target: entry?.id ?? (type === 'CreateEntry' ? crypto.randomUUID() : operationId),
@@ -90,15 +82,11 @@ async function renderWorkspace(selectedId?: string) {
   save.disabled = true;
 
   if (!connection) {
-    current.textContent = 'Connect Google Sheets to save this chapter.';
-    action('Set up Google Sheets', async () => {
-      settings.open = true;
-      endpoint.focus();
-    }, workspace);
+    current.textContent = 'Connect Google Drive to save progress.';
+    action('Connect Google Drive', () => chrome.runtime.openOptionsPage(), workspace).className = 'primary';
+    save.hidden = true;
     return;
   }
-
-  endpoint.value = connection.endpoint;
   current.textContent = 'Loading workbook records…';
   let entries: Entry[];
   try {
@@ -113,8 +101,9 @@ async function renderWorkspace(selectedId?: string) {
   const mappingKey = stable && 'mapping:' + connection.endpoint + ':' + connection.binding + ':' + stable;
   const mapping: Mapping | undefined = mappingKey ? (await chrome.storage.local.get(mappingKey))[mappingKey] as Mapping | undefined : undefined;
   const match = observation && candidates(observation, entries, mapping, canonicalSeries);
-  const filter = input('Find a title or source', workspace);
-  const dropdown = element('select', '', element('label', 'Workbook record', workspace));
+  const selection = element('div', '', workspace);
+  const filter = input('Find a title or source', selection);
+  const dropdown = element('select', '', element('label', 'Workbook record', selection));
   const byValue = new Map<string, Entry>();
   const matches = new Map(match?.matches.map(candidate => [candidate.entry, candidate.evidence]));
   const ordered = [...entries].sort((a,b) => Number(matches.has(b)) - Number(matches.has(a)));
@@ -140,6 +129,12 @@ async function renderWorkspace(selectedId?: string) {
     if (!entry?.id) throw new Error('Choose an enrolled workbook record.');
     return entry;
   };
+  const changeRecord = action('Change record', async () => {
+    selection.hidden = !selection.hidden;
+    if (!selection.hidden) dropdown.focus();
+  }, workspace);
+  selection.hidden = !!match?.verified || !!selectedId;
+  changeRecord.hidden = !selection.hidden;
   let saving = false;
   function showCurrent() {
     const entry = byValue.get(dropdown.value);
@@ -153,8 +148,8 @@ async function renderWorkspace(selectedId?: string) {
       current.textContent = 'This is a to-do record. Select a reading record to save progress.';
     } else {
       const title = aliases(entry.title)[0] || '(Untitled)';
-      current.textContent = missingProgress ? 'Enter a chapter or progress to save.' :
-        'Save to ' + title + ' · Saved progress · ' + (entry.progress ?? 'blank');
+      current.textContent = missingProgress ? 'Enter progress to save.' :
+        (title === observation?.title ? '' : title + ' · ') + 'Saved: ' + (entry.progress ?? '—');
     }
   }
   save.addEventListener('click', async () => {

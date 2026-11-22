@@ -29,8 +29,8 @@ export function input(label: string, parent = app, value = '', type = 'text') {
   field.maxLength = 2000;
   return field;
 }
-export function details(label: string) {
-  const panel = element('details');
+export function details(label: string, parent = app) {
+  const panel = element('details', '', parent);
   element('summary', label, panel);
   return panel;
 }

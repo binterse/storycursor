@@ -31,6 +31,12 @@ test('MV3 action detects the active tab and retries an uncertain save with the s
     await context.route(endpoint, async route => {
       const body = JSON.parse(route.request().postData()!);
       if (body.token !== token) return route.fulfill({ json: { status:'failed', message:'Unauthorized.' } });
+      if (body.action === 'folders') return route.fulfill({ json: { status:'ready', folders:[{ id:'new', name:'StoryCursor', label:'StoryCursor (create new)' }] } });
+      if (body.action === 'useFolder') {
+        expect(body.folder).toBe('new');
+        expect(body.name).toBe('StoryCursor');
+        return route.fulfill({ json: { status:'ready' } });
+      }
       if (body.action === 'list') return route.fulfill({ json: { status:'ready', entries:book.rows().map(record => describe(record, hash)) } });
       if (body.action !== 'submit') return route.fulfill({ json: { status:'ready', binding:hash('synthetic') } });
       requests.push(body.command.operationId);
@@ -56,19 +62,29 @@ test('MV3 action detects the active tab and retries an uncertain save with the s
     await popup.goto(popupUrl);
     await expect(popup.getByText('Open a reading tab to detect progress.')).toBeVisible();
 
-    await expect(popup.getByRole('button', { name:'Save progress' })).toBeDisabled();
-    await expect(popup.getByText('Connect Google Sheets to save this chapter.')).toBeVisible();
-    await popup.getByRole('button', { name:'Set up Google Sheets' }).click();
-    await popup.getByLabel('Apps Script deployment URL').fill(endpoint);
-    await popup.getByLabel('Service token').fill('b'.repeat(64));
-    await popup.getByRole('button', { name:'Connect' }).click();
-    await expect(popup.getByRole('status')).toHaveText('Unauthorized.');
-    await popup.getByLabel('Service token').fill(token);
-    await popup.getByRole('button', { name:'Connect' }).click();
+    await expect(popup.getByRole('button', { name:'Connect Google Drive' })).toBeVisible();
+    await expect(popup.getByLabel('Service token')).toHaveCount(0);
+    const opened = context.waitForEvent('page');
+    await popup.getByRole('button', { name:'Connect Google Drive' }).click();
+    const options = await opened;
+    await options.getByLabel('Deployment URL').fill(endpoint);
+    await options.getByLabel('Service token').fill('b'.repeat(64));
+    await options.getByRole('button', { name:'Continue' }).click();
+    await expect(options.getByRole('status')).toHaveText('Unauthorized.');
+    await options.getByLabel('Service token').fill(token);
+    await options.getByRole('button', { name:'Continue' }).click();
+    await expect(options.getByRole('combobox', { name:'Folder', exact:true })).toHaveValue('new');
+    await expect(options.getByLabel('New folder name')).toHaveValue('StoryCursor');
+    await options.getByRole('button', { name:'Use folder' }).click();
+    await expect(options.getByText('Google Sheets connected')).toBeVisible();
+    await popup.reload();
+    await expect(popup.getByRole('button', { name:'Connect Google Drive' })).toHaveCount(0);
+    await expect(popup.getByLabel('Service token')).toHaveCount(0);
     await popup.getByLabel('Workbook record').selectOption('0');
     await expect(popup.getByRole('button', { name:'Save progress' })).toBeDisabled();
     await popup.getByLabel('Chapter or progress').fill('157.5');
     await expect(popup.getByRole('button', { name:'Save progress' })).toBeEnabled();
+    if (process.env.STORYCURSOR_STORE_CAPTURE === '1') await popup.locator('main').screenshot({ path:'dist/store-popup.png' });
     popup.once('dialog', dialog => dialog.accept());
     await popup.getByRole('button', { name:'Save progress' }).click();
     await expect(popup.getByRole('status')).toContainText('Result unconfirmed');
@@ -81,6 +97,11 @@ test('MV3 action detects the active tab and retries an uncertain save with the s
     await popup.reload();
     await popup.getByText('Operation queue').click();
     await expect(popup.getByText('SetProgress · Confirmed saved')).toBeVisible();
+    options.once('dialog', dialog => dialog.accept());
+    await options.getByRole('button', { name:'Disconnect', exact:true }).click();
+    await expect(options.getByRole('heading', { name:'Connect Google Drive' })).toBeVisible();
+    await popup.reload();
+    await expect(popup.getByRole('button', { name:'Connect Google Drive' })).toBeVisible();
   } finally {
     await context.close();
   }

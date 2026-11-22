@@ -1,3 +1,5 @@
+declare const Drive: { Files: DriveFiles };
+import { folderChoices, managedWorkbook, type DriveFiles } from './folders';
 import { enrollment, type Choice } from './migration';
 import { apply, type Audit, type Transaction, type Workbook } from '../../packages/sheets-adapter/engine';
 import { columns, describe, revision, scalar, type Cell, type Row, type Sheet } from '../../packages/sheets-adapter/schema';
@@ -12,7 +14,7 @@ declare const Sheets: { Spreadsheets: {
   batchUpdate(body: { requests: (Append | Update | Add)[] }, id: string): unknown;
   Values: { get(id: string, range: string): { values?: string[][] } };
 } };
-declare const PropertiesService: { getScriptProperties(): { getProperty(key: string): string | null } };
+declare const PropertiesService: { getScriptProperties(): { getProperty(key: string): string | null; setProperty(key: string, value: string): void } };
 declare const LockService: { getScriptLock(): { tryLock(ms: number): boolean; releaseLock(): void } };
 declare const Utilities: { getUuid(): string; computeDigest(algorithm: unknown, value: string, encoding: unknown): number[]; DigestAlgorithm: { SHA_256: unknown }; Charset: { UTF_8: unknown } };
 declare const ContentService: { createTextOutput(value: string): { setMimeType(mime: unknown): unknown }; MimeType: { JSON: unknown } };
@@ -100,6 +102,25 @@ function openWorkbook(id: string): Workbook {
   };
 }
 
+function prepareManagedSheet(id: string) {
+  const sheets = Sheets.Spreadsheets.get(id, { fields: 'sheets(properties(sheetId,title))' }).sheets ?? [];
+  if (sheets.some(sheet => names.includes(sheet.properties.title as keyof typeof headers))) {
+    openWorkbook(id);
+    return;
+  }
+  if (sheets.length !== 1) throw new Error('The managed workbook has an unexpected layout.');
+  const taken = new Set(sheets.map(sheet => sheet.properties.sheetId));
+  const requests: (Add | Append)[] = [];
+  let next = 1;
+  for (const title of names) {
+    while (taken.has(next)) next++;
+    requests.push({ addSheet: { properties: { title, sheetId: next } } }, append(next, headers[title].map(textCell)));
+    next++;
+  }
+  Sheets.Spreadsheets.batchUpdate({ requests }, id);
+  openWorkbook(id);
+}
+
 export function handle(event: { postData?: { contents?: string } }) {
   const props = PropertiesService.getScriptProperties();
   const raw = event.postData?.contents ?? '';
@@ -113,6 +134,18 @@ export function handle(event: { postData?: { contents?: string } }) {
   if (!lock.tryLock(5000)) return json({ status: 'retry', message: 'Service busy.' });
   try {
     const id = props.getProperty('SPREADSHEET_ID');
+    const managed = props.getProperty('MANAGED_DRIVE') === 'yes';
+    if (request.action === 'folders') {
+      return json({ status: 'ready', folders: managed && !id ? folderChoices(Drive.Files) : null });
+    }
+    if (request.action === 'useFolder') {
+      if (!managed || id) return json({ status: 'conflict', message: 'This deployment already has a workbook or folder setup is disabled.' });
+      if (props.getProperty('EXCLUSIVE_WRITER') === 'yes') return json({ status: 'failed', message: 'Disable sync writes before choosing a folder.' });
+      const managedId = managedWorkbook(Drive.Files, request.folder, request.name);
+      prepareManagedSheet(managedId);
+      props.setProperty('SPREADSHEET_ID', managedId);
+      return json({ status: 'ready' });
+    }
     if (!id) return json({ status: 'failed', message: 'Test workbook is not configured.' });
     const book = openWorkbook(id);
     const binding = hash('storycursor-v1:' + id);

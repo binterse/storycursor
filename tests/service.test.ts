@@ -34,7 +34,7 @@ beforeEach(() => {
     "'_sync_meta'!A1:A1": ['storycursor-v1'],
   };
   values.mockImplementation((_, range: string) => ({ values: testHeaders[range] ? [testHeaders[range]] : [] }));
-  vi.stubGlobal('PropertiesService', { getScriptProperties: () => ({ getProperty: (key: string) => properties[key] }) });
+  vi.stubGlobal('PropertiesService', { getScriptProperties: () => ({ getProperty: (key: string) => properties[key], setProperty: (key: string, value: string) => { properties[key] = value; } }) });
   vi.stubGlobal('LockService', { getScriptLock: () => lock });
   vi.stubGlobal('ContentService', { createTextOutput: (body: string) => ({ setMimeType: () => JSON.parse(body) }), MimeType: { JSON: 'json' } });
   vi.stubGlobal('Utilities', {
@@ -94,4 +94,29 @@ it('refuses writes if a workbook header moved', () => {
   values.mockReturnValueOnce({ values: [['Title', 'Extra information', 'Progress']] });
   expect(post({ action:'submit', token, command:command() })).toMatchObject({ status:'retry' });
   expect(batch).not.toHaveBeenCalled();
+});
+
+it('guards managed setup and binds only after verifying the new workbook schema', () => {
+  const list = vi.fn().mockReturnValue({ files: [] });
+  const create = vi.fn().mockReturnValueOnce({ id: 'synthetic-folder' }).mockReturnValueOnce({ id: workbook });
+  vi.stubGlobal('Drive', { Files: { list, create } });
+  properties.MANAGED_DRIVE = 'yes';
+  expect(post({ action:'useFolder', token, folder:'new', name:'StoryCursor' })).toMatchObject({ status:'conflict' });
+  expect(create).not.toHaveBeenCalled();
+
+  delete properties.SPREADSHEET_ID;
+  expect(post({ action:'folders', token:'ff'.repeat(32) })).toMatchObject({ status:'failed' });
+  expect(list).not.toHaveBeenCalled();
+  expect(post({ action:'useFolder', token, folder:'new', name:'StoryCursor' })).toMatchObject({ status:'failed' });
+  expect(create).not.toHaveBeenCalled();
+
+  properties.EXCLUSIVE_WRITER = 'no';
+  get.mockReturnValueOnce({ sheets: [{ properties: { title: 'Sheet1', sheetId: 0 } }] });
+  expect(post({ action:'useFolder', token, folder:'new', name:'StoryCursor' })).toEqual({ status:'ready' });
+  expect(properties.SPREADSHEET_ID).toBe(workbook);
+  expect(batch).toHaveBeenCalledWith({ requests: expect.arrayContaining([
+    { addSheet: { properties: { title: 'reading', sheetId: 1 } } },
+  ]) }, workbook);
+  expect(post({ action:'folders', token })).toEqual({ status:'ready', folders:null });
+  expect(create).toHaveBeenCalledTimes(2);
 });

@@ -8,8 +8,8 @@ StoryCursor is a Manifest V3 browser extension for saving manga progress to Goog
 
 1. Download the extension ZIP from the build artifacts, or run the build below. Extract the ZIP.
 2. In desktop Chrome, open `chrome://extensions`, enable **Developer mode**, and select **Load unpacked**. Choose the extracted folder containing `manifest.json`. For a local build, choose `dist/extension`.
-3. Follow the [test workbook and Google authorization setup](docs/setup.md). In the extension popup, select **Set up Google Sheets**, enter the Apps Script deployment URL and service token, and select **Connect**.
-4. Open a manga chapter. Check the detected title and chapter, then select **Save progress**. The save button is visible before setup and shows what is required to enable it. A unique enrolled source is selected automatically. An uncertain match requires explicit record selection and confirmation.
+3. Follow the [test workbook and Google authorization setup](docs/setup.md). In the extension popup, select **Connect Google Drive**. The settings page accepts the test deployment URL and token. A managed deployment then suggests a Drive folder.
+4. Open a manga chapter. Check the detected title and chapter, then select **Save progress**. Once connected, use the settings icon to disconnect or manage Google access. A unique enrolled source is selected automatically. An uncertain match requires explicit record selection and confirmation.
 
 ## Popup guide
 
@@ -42,4 +42,4 @@ pnpm package
 
 The workspace separates the [domain and commands](packages/core), [site extraction](packages/site-adapters), [Sheets adapter and persistence engine](packages/sheets-adapter), [popup components](packages/ui), [browser integration](apps/extension), and [Apps Script service](apps/sheets-script).
 
-[API contract](docs/api.md) · [Backup and migration](docs/setup.md) · [Compatibility](docs/compatibility.md) · [Privacy](docs/privacy.md) · [MIT license](LICENSE)
+[API contract](docs/api.md) · [Backup and migration](docs/setup.md) · [Compatibility](docs/compatibility.md) · [Privacy](docs/privacy.md) · [MIT license](LICENSE) · [Private Chrome Web Store test](docs/store/private-test.md)
