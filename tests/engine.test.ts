@@ -107,3 +107,15 @@ it('stores uncertainties in the inbox only and validates hostile payloads', () =
   expect(book.inbox).toEqual(['Uncertain']);
   expect(apply(book, { ...inbox, operationId:'=invalid' }).status).toBe('conflict');
 });
+
+it('links and removes a backup without touching the primary or progress', () => {
+  original.row.cells[5] = {};
+  original.row.cells[6] = literal(original.id + ':' + anchor(original.row, hash));
+  const source = 'https://second.example/series';
+  expect(apply(book, command({ type: 'LinkExistingEntry', value: source })).status).toBe('saved');
+  expect(fields(original.row)).toMatchObject({ secondary: source, primary: series, progress: 156.5 });
+  expect(apply(book, command({ type: 'AddSource', value: 'https://third.example/series' })).status).toBe('conflict');
+  expect(apply(book, command({ type: 'RemoveSource', value: 'secondary' })).status).toBe('conflict');
+  expect(apply(book, command({ type: 'RemoveSource', value: 'secondary', confirmed: true })).status).toBe('saved');
+  expect(fields(original.row)).toMatchObject({ secondary: '', primary: series, progress: 156.5 });
+});

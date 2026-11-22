@@ -1,5 +1,6 @@
 import { activePage } from './browser';
 import { canonicalSeries, extract } from '../../packages/site-adapters/extract';
+import { chapterId, resolveChapter } from '../../packages/site-adapters/mangadex';
 import { aliases, candidates, parseProgress, sourceKey, titleKey, type Entry, type Mapping } from '../../packages/core/domain';
 import type { Command, CommandName } from '../../packages/core/commands';
 import { config, queue, queueKey, remote, validConfig, type Config, type QueueItem } from './sync';
@@ -68,9 +69,15 @@ async function submit(connection: Config, type: CommandName, entry: Entry | unde
 async function renderWorkspace(selectedId?: string) {
   workspace.replaceChildren();
   const page = await activePage().catch(() => undefined);
-  const observation = page ? extract(page) : undefined;
+  const observation = page ? await resolveChapter(extract(page)) : undefined;
   const connection = await config();
   element('p', observation?.title || 'Open a reading tab to detect progress.', workspace);
+  if (observation?.series && chapterId(observation.url)) {
+    const credit = element('a', 'Chapter metadata by MangaDex', workspace);
+    credit.href = 'https://mangadex.org/';
+    credit.target = '_blank';
+    credit.rel = 'noopener noreferrer';
+  }
   const progress = input('Chapter or progress', workspace, observation?.progress ?? '');
   if (!connection) {
     settings.open = true;
