@@ -72,7 +72,8 @@ async function renderWorkspace(selectedId?: string) {
   const observation = page ? await resolveChapter(extract(page)) : undefined;
   const connection = await config();
   element('p', observation?.title || 'Open a reading tab to detect progress.', workspace);
-  if (observation?.series && chapterId(observation.url)) {
+  if (observation && chapterId(observation.url)) {
+    if (!observation.series) element('p', 'MangaDex metadata is unavailable. Choose a record and enter progress.', workspace);
     const credit = element('a', 'Chapter metadata by MangaDex', workspace);
     credit.href = 'https://mangadex.org/';
     credit.target = '_blank';
