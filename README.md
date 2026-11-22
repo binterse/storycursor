@@ -2,7 +2,7 @@
 
 StoryCursor is a Manifest V3 browser extension for saving manga progress to Google Sheets. It detects supported reading URLs, suggests workbook records, and shows save confirmation after the synchronization service responds.
 
-**Release status.** The extension and service pass synthetic tests in Chrome for Testing. Live Google Sheets and FAB Android are pending. Use a separate test workbook for this release.
+**Release status.** The extension saved to a live synthetic Google Sheet from Chrome for Testing. FAB Android and production workbook validation remain pending. Use a separate test workbook for this release.
 
 ## Install
 

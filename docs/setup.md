@@ -19,7 +19,7 @@ Use these exact headers. The service checks their order before opening the workb
 4. Enroll the intended synthetic rows using the reviewed procedure below. Deploy as a **Web app**, **Execute as me**, with access **Anyone** if your account policy permits it. The extension sends a randomly generated bearer secret in each POST. The service checks the secret before opening the workbook or taking the lock. Google OAuth grants the service spreadsheet access at setup. The extension uses application-level token authentication without a Chrome Identity API or end-user Google OAuth sign-in. Do not share the URL and secret together or use this design as a multi-tenant service. [Apps Script web apps](https://developers.google.com/apps-script/guides/web).
 5. Confirm that the deployment is bound to the synthetic spreadsheet. Ensure only the one script deployment can write it, then set `EXCLUSIVE_WRITER=yes`. Connect from the extension and try the [compatibility checks](compatibility.md). Stop and turn writes off if any check fails.
 
-If your organization blocks anonymous transport to web apps, this build cannot connect to that deployment. The service must never accept POSTs without its secret. Live Google OAuth consent, the redirect, and live writes remain unverified.
+If your organization blocks anonymous transport to web apps, this build cannot connect to that deployment. The service must never accept POSTs without its secret. Google OAuth consent, the response redirect, and a one-click save were verified in a separate synthetic staging workbook.
 
 ## Review and enroll existing rows
 

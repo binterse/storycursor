@@ -6,9 +6,9 @@
 | Toolbar action opens the popup | Pass using Chrome DevTools Protocol | Untested |
 | Active-tab URL and isolated title read | Pass in the actual toolbar popup on a synthetic reader page | Untested |
 | Local persistence | Confirmed saved queue state survived a popup reload | Untested |
-| Authentication | Synthetic endpoint accepted a valid token and rejected an invalid one. Live deployment and Google consent unverified | Untested |
-| Cross-origin requests | Extension page and worker sent POSTs to intercepted Apps Script origin. Google redirect and live service unverified | Untested |
-| Save and retry | Extension page exercised manual selection and exact replay after a mock commit with a lost response | Untested |
+| Authentication | Google consent completed. Live staging accepted the valid token and rejected an invalid one | Untested |
+| Cross-origin requests | Live toolbar popup and worker reached Apps Script and received confirmation through the Google response redirect | Untested |
+| Save and retry | Live toolbar saved a decimal chapter with one click. Exact replay produced one audit row, a stale revision was rejected, and the mock test covered a lost response | Untested |
 
 The packaged manifest has a single build and uses activeTab, scripting, storage, an MV3 service worker and fixed host permissions for Apps Script. The FAB vendor advertises Chrome Web Store extensions. That does not verify these APIs or indicate how to install an unpacked development build. No Android device, FAB session, or store-published build was available for testing. [FAB listing](https://play.google.com/store/apps/details?id=com.hsv.freeadblockerbrowser) · [Chrome activeTab](https://developer.chrome.com/docs/extensions/develop/concepts/activeTab) · [Chrome cross-origin requests](https://developer.chrome.com/docs/extensions/develop/concepts/network-requests).
 
