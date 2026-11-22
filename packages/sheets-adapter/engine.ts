@@ -78,4 +78,3 @@ export function apply(book: Workbook, input: unknown): Result {
     throw error;
   }
 }
-

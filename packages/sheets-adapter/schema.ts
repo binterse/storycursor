@@ -68,4 +68,3 @@ export function writable(cell?: Cell) {
 export function literal(value: Scalar | undefined): Cell {
   return value === undefined ? {} : { userEnteredValue: typeof value === 'number' ? { numberValue: value } : { stringValue: value } };
 }
-

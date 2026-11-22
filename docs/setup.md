@@ -9,7 +9,7 @@ Create a separate spreadsheet while signed in to a Google account you control. U
 | reading | Title | Progress | Extra information | Rating | Primary link | Secondary link | Reserved ID |
 | todos | Title | Extra information | Rating | Primary link | Secondary link | Reserved ID | |
 
-Use synthetic rows. For example, on reading row 2, use `Orbit Library-;;;-Library of Moons-;;;-Orbital Archive` in A2, numeric `156.5` in B2, and `https://mangakatana.com/manga/orbit-library.1042` in E2. Add a note to B2 to verify preservation. Add another row with literal text `33.6/33.6` and a link with custom display text. Test with a separate browser profile.
+Use these exact headers. The service checks their order before opening the workbook. Use synthetic rows. For example, on reading row 2, use `Orbit Library-;;;-Library of Moons-;;;-Orbital Archive` in A2, numeric `156.5` in B2, and `https://mangakatana.com/manga/orbit-library.1042` in E2. Add a note to B2 to verify preservation. Add another row with literal text `33.6/33.6` and a link with custom display text. Test with a separate browser profile.
 
 ## Deploy and authorize Google access
 
@@ -24,10 +24,9 @@ If your organization blocks anonymous transport to web apps, this build cannot c
 ## Review and enroll existing rows
 
 1. Keep service writes disabled. Pause all other writers, including users, automations and imports. Make a complete Google Sheets copy and verify that its worksheets, row counts, formulas, rich links and notes are present. Retain access to the original version history.
-2. Review the target schema and verify that reading G and todos F are unused by existing rows. The tool refuses any chosen row with a populated or structurally occupied identity cell. If a reserved column is already used, stop and adapt the schema in a verified copy first. Additional tabs and existing media columns are outside the migration.
+2. Review the target schema and verify that reading G and todos F are unused by existing rows. The tool refuses any chosen row with a populated or structurally occupied identity cell. If a reserved column is already used, stop and adapt the schema in a verified copy first. Additional tabs and existing media cells are outside the migration. A separate review must reconcile different legacy headers before staging can proceed.
 3. Run `previewStoryCursorEnrollment` in the Apps Script editor. It logs sheet names, one-based rows and revision hashes. Review each row against the workbook and copy the desired `sheet`, `row`, and `expected` values into the `ENROLL_PLAN` script property, as a JSON array of up to 100 choices. Run `enrollStoryCursorRows`. Rows that changed between preview and enrollment and indistinguishable identities cause the batch to be rejected. An exact retry has no effect on already-enrolled rows.
 4. Review the copy against its backup. Exercise full-width row moves, stale commands, duplicates, an interrupted submission, restore, and formatting preservation. Test disabled writes and invalid tokens. Keep detached or ambiguous rows read-only until reviewed. Move the whole row including its ID when sorting. Stop all sync before deliberate manual changes, then reconcile affected identities before resuming.
 5. Do not point this deployment at the real workbook. Production use needs explicit authorization, a verified backup, live staging evidence, and review of an exclusive-writer and migration plan. Use a separate deployment and token for any approved environment.
 
 To pause or roll back, disable service writes and revoke the deployment or rotate the token as needed. Preserve the audit and inbox tabs. Restore a reviewed copy or use Google Sheets version history if necessary, after comparing changes made since the backup. Use the extension's **Restore** action for eligible individual field changes. Creation and inbox records do not have an automatic restore.
-

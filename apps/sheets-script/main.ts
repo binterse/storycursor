@@ -19,7 +19,23 @@ declare const ContentService: { createTextOutput(value: string): { setMimeType(m
 
 const hash = (value: string) => Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, value, Utilities.Charset.UTF_8)
   .map(byte => (byte & 255).toString(16).padStart(2, '0')).join('');
-const names = ['reading', 'todos', '_sync_log', '_sync_inbox', '_sync_meta'];
+const headers = {
+  reading: ['Title', 'Progress', 'Extra information', 'Rating', 'Primary link', 'Secondary link', 'Reserved ID'],
+  todos: ['Title', 'Extra information', 'Rating', 'Primary link', 'Secondary link', 'Reserved ID'],
+  _sync_log: ['operationId', 'audit'],
+  _sync_inbox: ['operationId', 'observation'],
+  _sync_meta: ['storycursor-v1'],
+} as const;
+const names = Object.keys(headers) as (keyof typeof headers)[];
+
+function checkHeaders(id: string, sheets: readonly (keyof typeof headers)[]) {
+  for (const name of sheets) {
+    const expected = headers[name];
+    const end = String.fromCharCode(64 + expected.length);
+    const values = Sheets.Spreadsheets.Values.get(id, "'" + name + "'!A1:" + end + "1").values?.[0];
+    if (!values || expected.some((value, index) => values[index] !== value)) throw new Error('Workbook schema or headers changed');
+  }
+}
 function json(value: unknown) {
   return ContentService.createTextOutput(JSON.stringify(value)).setMimeType(ContentService.MimeType.JSON);
 }
@@ -42,7 +58,7 @@ function openWorkbook(id: string): Workbook {
     return sheet.properties.sheetId;
   };
   names.forEach(sheetId);
-  if (Sheets.Spreadsheets.Values.get(id, "'_sync_meta'!A1").values?.[0]?.[0] !== 'storycursor-v1') throw new Error('Schema not initialized');
+  checkHeaders(id, names);
   return {
     hash,
     readingSheetId: () => sheetId('reading'),
@@ -141,19 +157,19 @@ export function initialize() {
       if (!sheets.some(sheet => sheet.properties.title === name)) throw new Error('Create reading and todos with headers first.');
     }
     const sync = names.slice(2);
-    const existing = sheets.filter(sheet => sync.includes(sheet.properties.title));
+    const existing = sheets.filter(sheet => sync.some(name => name === sheet.properties.title));
     if (existing.length) {
       openWorkbook(id);
       return 'Already initialized';
     }
-    const headers = [['operationId', 'audit'], ['operationId', 'observation'], ['storycursor-v1']];
+    checkHeaders(id, ['reading', 'todos']);
     const taken = new Set(sheets.map(sheet => sheet.properties.sheetId));
     const requests: (Add | Append)[] = [];
     let next = 1;
-    sync.forEach((title, index) => {
+    sync.forEach(title => {
       while (taken.has(next)) next++;
       requests.push({ addSheet: { properties: { title, sheetId: next } } });
-      requests.push(append(next, headers[index]!.map(textCell)));
+      requests.push(append(next, headers[title].map(textCell)));
       next++;
     });
     Sheets.Spreadsheets.batchUpdate({ requests }, id);
@@ -186,4 +202,3 @@ export function enroll() {
     return plan.length;
   });
 }
-

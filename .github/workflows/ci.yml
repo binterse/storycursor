@@ -28,4 +28,3 @@ jobs:
           path: |
             dist/storycursor-*.zip
             dist/sheets-script/
-

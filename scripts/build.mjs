@@ -15,5 +15,3 @@ await mkdir('dist/sheets-script', { recursive: true });
 await copyFile('apps/sheets-script/appsscript.json', 'dist/sheets-script/appsscript.json');
 if (process.argv.includes('--watch')) await (await context(service)).watch();
 else await build(service);
-
-

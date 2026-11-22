@@ -34,5 +34,3 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
   void task.then(item => reply({ item }), (error: Error) => reply({ error: error.message }));
   return true;
 });
-
-

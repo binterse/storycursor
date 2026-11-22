@@ -170,9 +170,3 @@ async function renderWorkspace(selectedId?: string) {
 }
 
 await Promise.all([renderQueue(), renderWorkspace()]).catch(error => report(errorMessage(error)));
-
-
-
-
-
-

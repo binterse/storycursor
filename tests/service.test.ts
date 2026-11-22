@@ -26,7 +26,14 @@ beforeEach(() => {
   get.mockImplementation((_, opts) => ({ sheets: opts.ranges
     ? [{ properties: metadata[0]!.properties, data:[{ rowData:[{}, { values:row.cells }] }] }]
     : metadata }));
-  values.mockImplementation((_, range) => range.includes('_sync_meta') ? { values:[['storycursor-v1']] } : {});
+  const testHeaders: Record<string, string[]> = {
+    "'reading'!A1:G1": ['Title', 'Progress', 'Extra information', 'Rating', 'Primary link', 'Secondary link', 'Reserved ID'],
+    "'todos'!A1:F1": ['Title', 'Extra information', 'Rating', 'Primary link', 'Secondary link', 'Reserved ID'],
+    "'_sync_log'!A1:B1": ['operationId', 'audit'],
+    "'_sync_inbox'!A1:B1": ['operationId', 'observation'],
+    "'_sync_meta'!A1:A1": ['storycursor-v1'],
+  };
+  values.mockImplementation((_, range: string) => ({ values: testHeaders[range] ? [testHeaders[range]] : [] }));
   vi.stubGlobal('PropertiesService', { getScriptProperties: () => ({ getProperty: (key: string) => properties[key] }) });
   vi.stubGlobal('LockService', { getScriptLock: () => lock });
   vi.stubGlobal('ContentService', { createTextOutput: (body: string) => ({ setMimeType: () => JSON.parse(body) }), MimeType: { JSON: 'json' } });
@@ -81,3 +88,10 @@ it('enrolls only unchanged reviewed rows and accepts an exact migration replay',
   expect(() => enrollment([sample], plan, hash, () => id)).toThrow('Enrollment row moved or changed.');
 });
 
+
+
+it('refuses writes if a workbook header moved', () => {
+  values.mockReturnValueOnce({ values: [['Title', 'Extra information', 'Progress']] });
+  expect(post({ action:'submit', token, command:command() })).toMatchObject({ status:'retry' });
+  expect(batch).not.toHaveBeenCalled();
+});

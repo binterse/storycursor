@@ -57,4 +57,3 @@ export function candidates(observation: Observation, entries: Entry[], mapping?:
     }),
   };
 }
-

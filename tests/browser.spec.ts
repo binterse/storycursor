@@ -81,14 +81,3 @@ test('MV3 action detects the active tab and retries an uncertain save with the s
     await context.close();
   }
 });
-
-
-
-
-
-
-
-
-
-
-

@@ -32,4 +32,3 @@ export function enrollment(rows: Row[], choices: Choice[], hash: Hash, nextId: (
     return [{ row, value: id + ':' + signature }];
   });
 }
-

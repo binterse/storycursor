@@ -24,4 +24,3 @@ For a live test, install on the target browser, open an enrolled synthetic chapt
 | Other | Active page URL and page title | Choose record and enter progress manually. Remember an exact page after explicit confirmation. |
 
 Recognized URL forms with query strings fall back to manual handling. Known canonical URLs are compared across both tabs. Test fixtures exercise patterns using invented titles and identifiers.
-

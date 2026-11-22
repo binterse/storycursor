@@ -79,4 +79,3 @@ export function prepare(command: Command, fields: Fields, restore?: Patch): Patc
       return {};
   }
 }
-

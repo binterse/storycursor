@@ -44,7 +44,3 @@ export const queueKey = (id: string) => 'queue:' + id;
 export async function queue() {
   return Object.entries(await chrome.storage.local.get(null)).filter(([key]) => key.startsWith('queue:')).map(([, value]) => value as QueueItem);
 }
-
-
-
-

@@ -34,5 +34,3 @@ export function details(label: string) {
   element('summary', label, panel);
   return panel;
 }
-
-
