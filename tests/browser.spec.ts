@@ -60,7 +60,7 @@ test('MV3 action detects the active tab and retries an uncertain save with the s
     });
     const popup = await context.newPage();
     await popup.goto(popupUrl);
-    await expect(popup.getByText('Open a reading tab to detect progress.')).toBeVisible();
+    await expect(popup.getByRole('heading', { name:'Reading progress' })).toBeVisible();
 
     await expect(popup.getByRole('button', { name:'Connect Google Drive' })).toBeVisible();
     await expect(popup.getByLabel('Service token')).toHaveCount(0);
@@ -84,6 +84,9 @@ test('MV3 action detects the active tab and retries an uncertain save with the s
     await expect(popup.getByRole('button', { name:'Save progress' })).toBeDisabled();
     await popup.getByLabel('Chapter or progress').fill('157.5');
     await expect(popup.getByRole('button', { name:'Save progress' })).toBeEnabled();
+    await expect(popup.getByText('Operation queue')).not.toBeVisible();
+    await expect(popup.getByText('Saved: 156.5')).toBeVisible();
+    await popup.locator('main').screenshot({ path:info.outputPath('connected-popup.png') });
     if (process.env.STORYCURSOR_STORE_CAPTURE === '1') await popup.locator('main').screenshot({ path:'dist/store-popup.png' });
     popup.once('dialog', dialog => dialog.accept());
     await popup.getByRole('button', { name:'Save progress' }).click();

@@ -12,8 +12,11 @@ heading.before(header);
 header.append(heading);
 const settings = action('⚙', () => chrome.runtime.openOptionsPage(), header);
 settings.setAttribute('aria-label', 'Settings');
+settings.className = 'icon-button';
 const workspace = element('section');
+workspace.className = 'workspace';
 const history = details('Operation queue');
+history.hidden = true;
 const historyList = element('div', '', history);
 async function send(item: QueueItem) {
   report('Submitted…');
@@ -27,7 +30,7 @@ async function send(item: QueueItem) {
 async function renderQueue() {
   historyList.replaceChildren();
   const items = (await queue()).reverse();
-  if (!items.length) element('p', 'No operations yet.', historyList);
+  history.hidden = !items.length;
   for (const item of items) {
     const line = element('p', item.command.type + ' · ' + item.state, historyList);
     line.title = item.command.operationId;
@@ -60,18 +63,26 @@ async function submit(connection: Config, type: CommandName, entry: Entry | unde
 
 async function renderWorkspace(selectedId?: string) {
   workspace.replaceChildren();
+  app.querySelector('.source-credit')?.remove();
   const page = await activePage().catch(() => undefined);
   const observation = page ? await resolveChapter(extract(page)) : undefined;
   const connection = await config();
-  element('p', observation?.title || 'Open a reading tab to detect progress.', workspace);
-  if (observation && chapterId(observation.url)) {
-    if (!observation.series) element('p', 'MangaDex metadata is unavailable. Choose a record and enter progress.', workspace);
-    const credit = element('a', 'Chapter metadata by MangaDex', workspace);
+  const pageTitle = observation?.title.replace(/\s+/g, ' ').trim() || 'Reading progress';
+  const title = element('h2', pageTitle, workspace);
+  title.className = 'page-title';
+  title.title = pageTitle;
+  const mangaDexChapter = observation && chapterId(observation.url);
+  if (mangaDexChapter) {
+    const credit = element('a', 'Metadata by MangaDex', workspace);
+    credit.className = 'source-credit';
     credit.href = 'https://mangadex.org/';
     credit.target = '_blank';
     credit.rel = 'noopener noreferrer';
+    workspace.after(credit);
+    if (!observation.series) element('p', 'MangaDex chapter unavailable. Enter progress manually.', workspace).className = 'secondary-text';
   }
   const progress = input('Chapter or progress', workspace, observation?.progress ?? '');
+  progress.id = 'progress-value';
   const current = element('p', '', workspace);
   current.id = 'save-guidance';
   current.setAttribute('aria-live', 'polite');
@@ -102,6 +113,7 @@ async function renderWorkspace(selectedId?: string) {
   const mapping: Mapping | undefined = mappingKey ? (await chrome.storage.local.get(mappingKey))[mappingKey] as Mapping | undefined : undefined;
   const match = observation && candidates(observation, entries, mapping, canonicalSeries);
   const selection = element('div', '', workspace);
+  selection.className = 'record-picker';
   const filter = input('Find a title or source', selection);
   const dropdown = element('select', '', element('label', 'Workbook record', selection));
   const byValue = new Map<string, Entry>();
@@ -133,6 +145,7 @@ async function renderWorkspace(selectedId?: string) {
     selection.hidden = !selection.hidden;
     if (!selection.hidden) dropdown.focus();
   }, workspace);
+  changeRecord.className = 'text-button';
   selection.hidden = !!match?.verified || !!selectedId;
   changeRecord.hidden = !selection.hidden;
   let saving = false;
@@ -148,8 +161,13 @@ async function renderWorkspace(selectedId?: string) {
       current.textContent = 'This is a to-do record. Select a reading record to save progress.';
     } else {
       const title = aliases(entry.title)[0] || '(Untitled)';
-      current.textContent = missingProgress ? 'Enter progress to save.' :
-        (title === observation?.title ? '' : title + ' · ') + 'Saved: ' + (entry.progress ?? '—');
+      current.replaceChildren();
+      if (title !== pageTitle) {
+        const label = element('span', title, current);
+        label.className = 'record-title';
+        label.title = title;
+      }
+      element('span', missingProgress ? 'Enter progress to save.' : 'Saved: ' + (entry.progress ?? '—'), current);
     }
   }
   save.addEventListener('click', async () => {
