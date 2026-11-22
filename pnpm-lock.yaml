@@ -39,6 +39,18 @@ importers:
         specifier: ^5.1.1
         version: 5.1.1(@types/node@26.6.6)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2))
 
+  apps/extension: {}
+
+  apps/sheets-script: {}
+
+  packages/core: {}
+
+  packages/sheets-adapter: {}
+
+  packages/site-adapters: {}
+
+  packages/ui: {}
+
 packages:
 
   '@cacheable/memory@2.2.0':
