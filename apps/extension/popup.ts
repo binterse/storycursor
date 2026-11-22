@@ -5,7 +5,7 @@ import { aliases, candidates, parseProgress, sourceKey, titleKey, type Entry, ty
 import type { Command, CommandName } from '../../packages/core/commands';
 import { config, queue, queueKey, remote, validConfig, type Config, type QueueItem } from './sync';
 
-import { action, details, element, errorMessage, input, report } from '../../packages/ui/popup';
+import { action, app, details, element, errorMessage, input, report } from '../../packages/ui/popup';
 const workspace = element('section');
 const history = details('Operation queue');
 const historyList = element('div', '', history);
@@ -42,7 +42,7 @@ async function renderQueue() {
   }
 }
 
-const settings = details('Connection');
+const settings = details('Google Sheets connection');
 const endpoint = input('Apps Script deployment URL', settings, '', 'url');
 const token = input('Service token', settings, '', 'password');
 action('Connect', async () => {
@@ -80,12 +80,35 @@ async function renderWorkspace(selectedId?: string) {
     credit.rel = 'noopener noreferrer';
   }
   const progress = input('Chapter or progress', workspace, observation?.progress ?? '');
+  const current = element('p', '', workspace);
+  current.id = 'save-guidance';
+  current.setAttribute('aria-live', 'polite');
+  const save = element('button', 'Save progress', workspace);
+  save.type = 'button';
+  save.className = 'primary';
+  save.setAttribute('aria-describedby', current.id);
+  save.disabled = true;
+
   if (!connection) {
-    settings.open = true;
+    current.textContent = 'Connect Google Sheets to save this chapter.';
+    action('Set up Google Sheets', async () => {
+      settings.open = true;
+      endpoint.focus();
+    }, workspace);
     return;
   }
+
   endpoint.value = connection.endpoint;
-  const entries = await remote(connection).list();
+  current.textContent = 'Loading workbook records…';
+  let entries: Entry[];
+  try {
+    entries = await remote(connection).list();
+  } catch (error) {
+    current.textContent = 'Could not load workbook records. Check the connection and try again.';
+    action('Try again', async () => renderWorkspace(), workspace);
+    report(errorMessage(error));
+    return;
+  }
   const stable = observation && sourceKey(observation.series ?? observation.url);
   const mappingKey = stable && 'mapping:' + connection.endpoint + ':' + connection.binding + ':' + stable;
   const mapping: Mapping | undefined = mappingKey ? (await chrome.storage.local.get(mappingKey))[mappingKey] as Mapping | undefined : undefined;
@@ -117,27 +140,50 @@ async function renderWorkspace(selectedId?: string) {
     if (!entry?.id) throw new Error('Choose an enrolled workbook record.');
     return entry;
   };
-  const current = element('p', '', workspace);
+  let saving = false;
   function showCurrent() {
     const entry = byValue.get(dropdown.value);
-    current.textContent = entry ? 'Saved progress · ' + (entry.progress ?? 'blank') : 'Choose a record to save progress.';
-    save.disabled = entry?.sheet !== 'reading';
+    const missingProgress = !progress.value.trim();
+    save.disabled = saving || entry?.sheet !== 'reading' || missingProgress;
+    if (!entry) {
+      current.textContent = ordered.some(record => record.id && record.sheet === 'reading')
+        ? 'Choose the matching reading record below.'
+        : 'Create a reading record or enroll an existing one to save progress.';
+    } else if (entry.sheet === 'todos') {
+      current.textContent = 'This is a to-do record. Select a reading record to save progress.';
+    } else {
+      const title = aliases(entry.title)[0] || '(Untitled)';
+      current.textContent = missingProgress ? 'Enter a chapter or progress to save.' :
+        'Save to ' + title + ' · Saved progress · ' + (entry.progress ?? 'blank');
+    }
   }
-  const save = action('Save progress', async () => {
-    const entry = target();
-    if (observation && (await activePage()).url !== observation.url) throw new Error('The page changed. Reopen StoryCursor.');
-    const value = progress.value;
-    if (!value.trim()) throw new Error('Enter progress.');
-    if (entry !== match?.verified && !window.confirm('Save progress to ' + (entry.title || '(Untitled)') + '?')) return;
-    const previous = entry.progress;
-    const before = previous === undefined ? undefined : parseProgress(previous);
-    const after = parseProgress(value);
-    const needsApproval = previous !== undefined && previous !== '' && previous !== value &&
-      (before?.kind !== 'ordinal' || after.kind !== 'ordinal' || after.value <= before.value);
-    if (needsApproval && !window.confirm('Replace ' + previous + ' with ' + value + '?')) return;
-    await submit(connection, 'SetProgress', entry, value, needsApproval);
-  }, workspace);
-  save.className = 'primary';
+  save.addEventListener('click', async () => {
+    if (app.dataset.busy) return;
+    app.dataset.busy = 'true';
+    saving = true;
+    save.disabled = true;
+    try {
+      const entry = target();
+      if (observation && (await activePage()).url !== observation.url) throw new Error('The page changed. Reopen StoryCursor.');
+      const value = progress.value;
+      if (!value.trim()) throw new Error('Enter progress.');
+      if (entry !== match?.verified && !window.confirm('Save progress to ' + (entry.title || '(Untitled)') + '?')) return;
+      const previous = entry.progress;
+      const before = previous === undefined ? undefined : parseProgress(previous);
+      const after = parseProgress(value);
+      const needsApproval = previous !== undefined && previous !== '' && previous !== value &&
+        (before?.kind !== 'ordinal' || after.kind !== 'ordinal' || after.value <= before.value);
+      if (needsApproval && !window.confirm('Replace ' + previous + ' with ' + value + '?')) return;
+      await submit(connection, 'SetProgress', entry, value, needsApproval);
+    } catch (error) {
+      report(errorMessage(error));
+    } finally {
+      saving = false;
+      delete app.dataset.busy;
+      showCurrent();
+    }
+  });
+  progress.addEventListener('input', showCurrent);
   dropdown.addEventListener('change', showCurrent);
   filter.addEventListener('input', () => {
     fillOptions(titleKey(filter.value), byValue.get(dropdown.value));

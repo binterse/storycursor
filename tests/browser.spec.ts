@@ -56,6 +56,9 @@ test('MV3 action detects the active tab and retries an uncertain save with the s
     await popup.goto(popupUrl);
     await expect(popup.getByText('Open a reading tab to detect progress.')).toBeVisible();
 
+    await expect(popup.getByRole('button', { name:'Save progress' })).toBeDisabled();
+    await expect(popup.getByText('Connect Google Sheets to save this chapter.')).toBeVisible();
+    await popup.getByRole('button', { name:'Set up Google Sheets' }).click();
     await popup.getByLabel('Apps Script deployment URL').fill(endpoint);
     await popup.getByLabel('Service token').fill('b'.repeat(64));
     await popup.getByRole('button', { name:'Connect' }).click();
@@ -63,8 +66,9 @@ test('MV3 action detects the active tab and retries an uncertain save with the s
     await popup.getByLabel('Service token').fill(token);
     await popup.getByRole('button', { name:'Connect' }).click();
     await popup.getByLabel('Workbook record').selectOption('0');
-    await expect(popup.getByText('Saved progress · 156.5')).toBeVisible();
+    await expect(popup.getByRole('button', { name:'Save progress' })).toBeDisabled();
     await popup.getByLabel('Chapter or progress').fill('157.5');
+    await expect(popup.getByRole('button', { name:'Save progress' })).toBeEnabled();
     popup.once('dialog', dialog => dialog.accept());
     await popup.getByRole('button', { name:'Save progress' }).click();
     await expect(popup.getByRole('status')).toContainText('Result unconfirmed');
