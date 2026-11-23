@@ -1,7 +1,8 @@
 import { chromium, expect, test } from '@playwright/test';
-import { readFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { extensionPath, inspectPopup } from './chrome-popup';
+import { extensionPath, inspectPopup, popupCommand } from './chrome-popup';
 import { apply } from '../packages/sheets-adapter/engine';
 import { describe, fields } from '../packages/sheets-adapter/schema';
 import { hash, MockBook } from './fixtures';
@@ -45,12 +46,15 @@ async function interceptPopup(profile: string, target: string, book: MockBook) {
 
 const system = test.extend<{ reader: {
   book: MockBook;
+  holdNextSave: () => { started: Promise<void>; resume: () => void };
+  confirmedSaves: () => Promise<number>;
   page: (url: string, title: string) => Promise<void>;
   popup: (url: string, chapter: string) => Promise<{
     run: <T>(expression: string) => Promise<T>;
     label: () => Promise<string>;
     click: () => Promise<unknown>;
     close: () => Promise<void>;
+    screenshot: (file: string) => Promise<void>;
   }>;
 } }>({ reader:async ({ browserName }, use, info) => {
   test.skip(browserName !== 'chromium');
@@ -68,10 +72,29 @@ const system = test.extend<{ reader: {
     const worker = ctx.serviceWorkers()[0] ?? await ctx.waitForEvent('serviceworker');
     const id = new URL(worker.url()).hostname;
     await worker.evaluate(connection => chrome.storage.local.set({ connection }), { endpoint, token, binding:hash('system-fixture') });
-    await ctx.route(endpoint, route => {
+    let pausedSave: { arrive: () => void; wait: Promise<void> } | undefined;
+    function holdNextSave() {
+      let arrive = () => {};
+      let resume = () => {};
+      const started = new Promise<void>(resolve => { arrive = resolve; });
+      const wait = new Promise<void>(resolve => { resume = resolve; });
+      pausedSave = { arrive, wait };
+      return { started, resume };
+    }
+    const confirmedSaves = () => worker.evaluate(async () => {
+      const items = await chrome.storage.local.get(null) as Record<string, { state?: string }>;
+      return Object.entries(items).filter(([key, item]) => key.startsWith('queue:') && item.state === 'Confirmed saved').length;
+    });
+    await ctx.route(endpoint, async route => {
       const request = route.request().postDataJSON();
       if (request.token !== token) return route.fulfill({ status:403 });
-      if (request.action === 'submit') return route.fulfill({ json:apply(book,request.command) });
+      if (request.action === 'submit') {
+        const paused = pausedSave;
+        pausedSave = undefined;
+        paused?.arrive();
+        await paused?.wait;
+        return route.fulfill({ json:apply(book,request.command) });
+      }
       return route.fulfill({ json:{ status:'ready', entries:book.rows().map(row => describe(row,hash)) } });
     });
     await ctx.route(mdApi + '**', route => route.fulfill({ status:403 }));
@@ -104,12 +127,16 @@ const system = test.extend<{ reader: {
       const run = <T>(expr: string) => inspectPopup<T>(profile,target,expr);
       const label = () => run<string>("document.querySelector('.workspace button.primary')?.innerText");
       const click = () => run("document.querySelector('.workspace button.primary').click(); true");
-      await expect.poll(label,{ timeout:9000 }).toMatch(/^(?:Add manga|Save progress|Chapter saved|Try again)$/);
+      await expect.poll(label,{ timeout:9000 }).toMatch(/^(?:Add manga|Update .+|Remember this series|Chapter saved|Try again)$/);
       if (await label() === 'Try again') await click();
       await expect.poll(() => run("document.querySelector('.chapter-summary')?.textContent")).toBe('Chapter ' + chapter);
-      return { run, label, click, close: () => closePopup(target) };
+      async function screenshot(file: string) {
+        const shot = await popupCommand<{ data: string }>(profile,target,'Page.captureScreenshot',{ format:'png' });
+        await writeFile(info.outputPath(file),Buffer.from(shot.data,'base64'));
+      }
+      return { run, label, click, screenshot, close: () => closePopup(target) };
     }
-    await use({ book, page, popup });
+    await use({ book, page, popup, holdNextSave, confirmedSaves });
   } finally {
     interceptor?.close();
     await ctx.close();
@@ -131,9 +158,13 @@ system('MangaDex keeps an exact chapter link through an API outage and requires 
   await expect.poll(second.label).toBe('Chapter saved');
   await second.close();
   const third = await reader.popup(unrelatedChapter, '4');
-  await expect.poll(third.label).toBe('Add manga');
-  await expect.poll(() => third.run('document.body.innerText')).toContain('Possible match under Record actions.');
+  await expect.poll(third.label).toBe('Update to chapter 4');
+  await expect.poll(() => third.run('document.body.innerText')).toContain('Suggested: ' + title);
+  await third.run("window.confirm = message => { document.body.dataset.confirmation = message; return false; }; true");
+  await third.click();
+  await expect.poll(() => third.run('document.body.dataset.confirmation')).toBe('Update ' + title + ' to 4?');
   expect(reader.book.data).toHaveLength(1);
+  expect(fields(reader.book.data[0]!).progress).toBe('3');
 });
 
 system('MangaKatana adds a correctly titled manga and saves the next chapter in one click', async ({ reader }) => {
@@ -148,8 +179,81 @@ system('MangaKatana adds a correctly titled manga and saves the next chapter in 
   expect(reader.book.data.map(fields)).toEqual([expect.objectContaining({ title, progress:'234', primary:series })]);
   await first.close();
   const second = await reader.popup(series + '/c235', '235');
-  await expect.poll(second.label).toBe('Save progress');
+  await expect.poll(second.label).toBe('Update to chapter 235');
   await second.click();
   await expect.poll(() => second.run("document.querySelector('[role=status]')?.textContent")).toBe('Confirmed saved');
   expect(reader.book.data.map(fields)).toEqual([expect.objectContaining({ title, progress:'235', primary:series })]);
+});
+
+system('a newly detected source can update an existing manga from the main popup and is remembered', async ({ reader }) => {
+  const name = 'Moonlit Index';
+  const primary = 'https://mangakatana.com/manga/moonlit-index.25775';
+  const source = 'https://mangareader.to/read/moonlit-index-42/en/chapter-';
+  await reader.page(primary + '/c3', 'Chapter 3 - ' + name);
+  await reader.page(source + '4', name);
+  await reader.page(source + '5', name);
+  const first = await reader.popup(primary + '/c3', '3');
+  await first.click();
+  await expect.poll(() => first.run("document.querySelector('[role=status]')?.textContent")).toBe('Confirmed saved');
+  await first.close();
+
+  const second = await reader.popup(source + '4', '4');
+  await expect.poll(second.label).toBe('Update to chapter 4');
+  await expect.poll(() => second.run('document.body.innerText')).toContain('Suggested: ' + name);
+  await second.screenshot('suggested-update.png');
+  await second.run("window.confirm = message => { document.body.dataset.confirmation = message; return false; }; true");
+  await second.click();
+  await expect.poll(() => second.run('document.body.dataset.confirmation')).toContain('Update ' + name);
+  expect(reader.book.data.map(fields)).toEqual([{ title:name, progress:'3', primary, secondary:'' }]);
+  await second.close();
+  const retry = await reader.popup(source + '4', '4');
+  await expect.poll(() => retry.run('document.body.innerText')).toContain('Suggested: ' + name);
+  await retry.run("window.confirm = message => { document.body.dataset.confirmation = message; return true; }; true");
+  const save = reader.holdNextSave();
+  try {
+    await retry.click();
+    await save.started;
+    expect(await retry.run('document.body.dataset.confirmation')).toContain('remember this series');
+    await retry.close();
+  } finally {
+    save.resume();
+  }
+  await expect.poll(reader.confirmedSaves).toBe(2);
+  expect(reader.book.data.map(fields)).toEqual([{ title:name, progress:'4', primary, secondary:'' }]);
+
+  const next = await reader.popup(source + '5', '5');
+  await expect.poll(next.label).toBe('Update to chapter 5');
+  await next.screenshot('verified-update.png');
+  await next.click();
+  await expect.poll(() => next.run("document.querySelector('[role=status]')?.textContent")).toBe('Confirmed saved');
+  expect(reader.book.data.map(fields)).toEqual([{ title:name, progress:'5', primary, secondary:'' }]);
+});
+
+system('matching titles require a manga selection before updating either record', async ({ reader }) => {
+  const name = 'The Two Moons';
+  const url = 'https://mangareader.to/read/two-moons-42/en/chapter-4';
+  for (const progress of ['1', '3']) {
+    expect(apply(reader.book, {
+      type:'CreateManga', operationId:randomUUID(), target:randomUUID(), expected:'absent', value:name, confirmed:true,
+      initial:{ source:'https://reader.example/edition-' + progress, progress },
+    })).toHaveProperty('status', 'saved');
+  }
+  await reader.page(url, name);
+  const popup = await reader.popup(url, '4');
+  await expect.poll(popup.label).toBe('Update existing');
+  await popup.click();
+  await expect.poll(() => popup.run("document.querySelector('.quick-picker select')?.checkVisibility()")).toBe(true);
+  expect(await popup.run("document.querySelector('.quick-picker select').value")).toBe('');
+  expect(await popup.run("document.querySelector('.workspace button.primary').checkVisibility()")).toBe(false);
+  await popup.run(`(() => {
+    const select = document.querySelector('.quick-picker select');
+    select.value = [...select.options].find(option => option.text.includes('edition-3')).value;
+    select.dispatchEvent(new Event('change'));
+    window.confirm = () => true;
+    return true;
+  })()`);
+  await expect.poll(popup.label).toBe('Update to chapter 4');
+  await popup.click();
+  await expect.poll(() => popup.run("document.querySelector('[role=status]')?.textContent")).toBe('Confirmed saved');
+  expect(reader.book.data.map(row => fields(row).progress)).toEqual(['1', '4']);
 });

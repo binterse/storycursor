@@ -44,6 +44,8 @@ The MangaDex outage scenario injects a reader title and a 403 response, adds a m
 
 The MangaKatana workflow replays the URL and document title patterns observed on chapters 234 and 235. It adds the manga with the series title and source, then opens the next chapter and verifies that one click updates the same record.
 
+The popup tests also cover an existing manga visited on a new, identifiable series URL. The suggested update requires confirmation, then the next chapter can be saved with one click in the same browser profile. Duplicate titles require choosing a record in the popup. With only a MangaDex chapter ID and no series metadata, the title stays a suggestion for other chapter IDs.
+
 `pnpm system:live` checks the installed toolbar on public MangaKatana chapters 234 and 235 of *Return of the Frozen Player* and on MangaReader's *Vagabond* chapter 1. It also checks the public MangaDex API's chapter-to-series metadata. It reports a failed check for unavailable readers and writes successful popup screenshots under `test-results/live`. In the 0.3.3 check, both MangaKatana chapters and the MangaDex API passed. MangaReader's navigation timed out. The live checks make no Google Sheets requests and do not load the live MangaDex reader site.
 
 For a configured staging service, `pnpm verify:staging` checks the workbook binding and whether the deployed service recognizes the current add-manga command without inserting a row. See [the staging probe](setup.md).

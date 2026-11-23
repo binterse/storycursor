@@ -103,6 +103,10 @@ body.options h1 { font-size: 20px; }
 }
 
 .chapter-summary { font-size: 22px; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.save-choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.save-choices button { flex: 1 1 auto; }
+.quick-picker { display: grid; gap: 6px; min-width: 0; }
+.quick-picker summary { min-height: 36px; padding: 9px 0; }
 .record-actions { border-top: 1px solid var(--line); padding-top: 3px; }
 .record-actions summary { min-height: 40px; padding: 10px 0; }
 .record-tools { display: grid; gap: 8px; padding-top: 3px; }

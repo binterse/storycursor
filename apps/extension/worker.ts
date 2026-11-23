@@ -1,8 +1,31 @@
 import { confirmDebugCapture } from './debug-storage';
 import { uuid } from '../../packages/core/commands';
-import { config, queueKey, remote, type QueueItem } from './sync';
+import type { Mapping } from '../../packages/core/domain';
+import { canonicalSeries } from '../../packages/site-adapters/extract';
+import { config, queueKey, remote, sourceMappingKey, type Config, type QueueItem } from './sync';
 
 const inFlight = new Map<string, Promise<QueueItem>>();
+let mappingWrites = Promise.resolve();
+
+function persistResult(key: string, item: QueueItem, connection: Config) {
+  const source = item.rememberSeries;
+  if (item.state !== 'Confirmed saved' || item.command.type !== 'SetProgress' || !source || canonicalSeries(source) !== source) {
+    return chrome.storage.local.set({ [key]: item });
+  }
+  const mappingKey = sourceMappingKey(connection, source);
+  const write = mappingWrites.then(async () => {
+    const existing = (await chrome.storage.local.get(mappingKey))[mappingKey] as Mapping | undefined;
+    if (existing && existing.id !== item.command.target) {
+      item.message = 'This series already points to another record on this device.';
+      await chrome.storage.local.set({ [key]: item });
+      return;
+    }
+    await chrome.storage.local.set({ [key]: item, [mappingKey]: { source, id: item.command.target } satisfies Mapping });
+  });
+  mappingWrites = write.catch(() => {});
+  return write;
+}
+
 async function submit(id: string): Promise<QueueItem> {
   const key = queueKey(id);
   const item: QueueItem | undefined = (await chrome.storage.local.get(key))[key] as QueueItem | undefined;
@@ -24,7 +47,7 @@ async function submit(id: string): Promise<QueueItem> {
   if (STORYCURSOR_DEBUG && item.command.type === 'CreateManga' && next.state === 'Confirmed saved') {
     await confirmDebugCapture(id).catch(() => {});
   }
-  await chrome.storage.local.set({ [key]: next });
+  await persistResult(key, next, connection);
   return next;
 }
 

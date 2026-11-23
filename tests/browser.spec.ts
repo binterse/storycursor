@@ -86,9 +86,9 @@ test('MV3 action detects the active tab and retries an uncertain save with the s
     await expect(popup.getByRole('button', { name:'Add manga' })).toBeDisabled();
     await popup.getByText('Record actions', { exact:true }).click();
     await popup.getByLabel('Workbook record').selectOption('0');
-    await expect(popup.getByRole('button', { name:'Save progress' })).toBeDisabled();
+    await expect(popup.getByRole('button', { name:'Update progress' })).toBeDisabled();
     await popup.getByLabel('Chapter or progress').fill('157.5');
-    await expect(popup.getByRole('button', { name:'Save progress' })).toBeEnabled();
+    await expect(popup.getByRole('button', { name:'Update to chapter 157.5' })).toBeEnabled();
     await popup.getByText('Record actions', { exact:true }).click();
     await expect(popup.getByLabel('Chapter or progress')).not.toBeVisible();
     await expect(popup.getByText('Operation queue')).not.toBeVisible();
@@ -98,13 +98,13 @@ test('MV3 action detects the active tab and retries an uncertain save with the s
     await popup.setViewportSize({ width:300, height:580 });
     await popupSession.send('Emulation.setTouchEmulationEnabled', { enabled:true });
     await expect.poll(() => popup.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await expect(popup.getByRole('button', { name:'Save progress' })).toBeInViewport();
+    await expect(popup.getByRole('button', { name:'Update to chapter 157.5' })).toBeInViewport();
     await popupSession.send('Emulation.setTouchEmulationEnabled', { enabled:false });
     await popup.setViewportSize({ width:420, height:650 });
     await popup.locator('main').screenshot({ path:info.outputPath('connected-popup.png') });
     if (process.env.STORYCURSOR_STORE_CAPTURE === '1') await popup.locator('main').screenshot({ path:'dist/store-popup.png' });
     popup.once('dialog', dialog => dialog.accept());
-    await popup.getByRole('button', { name:'Save progress' }).click();
+    await popup.getByRole('button', { name:'Update to chapter 157.5' }).click();
     await expect(popup.getByRole('status')).toContainText('Result unconfirmed');
     await popup.getByText('Operation queue').click();
     await popup.getByRole('button', { name:'Retry' }).click();

@@ -9,7 +9,7 @@ StoryCursor is a Manifest V3 browser extension for saving manga progress to Goog
 1. Download the extension ZIP from the build artifacts, or run the build below. Extract the ZIP.
 2. In desktop Chrome, open `chrome://extensions`, enable **Developer mode**, and select **Load unpacked**. Choose the extracted release folder containing `manifest.json`. For the local debug build, choose `dist/extension`.
 3. Follow the [test workbook and Google authorization setup](docs/setup.md). In the extension popup, select **Connect Google Drive**. The settings page accepts the test deployment URL and token. A managed deployment then suggests a Drive folder.
-4. Open a manga chapter. Check the detected title and chapter, then select **Save progress** for an existing series or **Add manga** for a new one. Open **Record actions** for manual entry, record selection and source tools. Once connected, use the settings icon to disconnect or manage Google access. A unique enrolled source is selected automatically. An uncertain match requires explicit record selection and confirmation.
+4. Open a manga chapter. Select **Update to chapter …** for a recognized series or **Add manga** for a new one. **Update existing** opens a record picker directly in the popup. An unambiguous title suggestion still asks you to confirm the record. When the adapter identifies the series, a confirmed update can remember it on this device. Open **Record actions** for manual progress and source tools or use settings to manage the Google connection.
 
 ## Popup guide
 

@@ -53,8 +53,9 @@ export function remote(connection: Config): Storage & { check(): Promise<string>
     },
   };
 }
-export type QueueItem = { command: Command; endpoint: string; binding?: string; state: 'Pending locally' | 'Submitted' | 'Confirmed saved' | 'Conflict' | 'Failed'; message?: string; uncertain?: boolean };
+export type QueueItem = { command: Command; endpoint: string; binding?: string; state: 'Pending locally' | 'Submitted' | 'Confirmed saved' | 'Conflict' | 'Failed'; message?: string; uncertain?: boolean; rememberSeries?: string };
 export const queueKey = (id: string) => 'queue:' + id;
+export const sourceMappingKey = (connection: Config, source: string) => 'mapping:' + connection.endpoint + ':' + connection.binding + ':' + source;
 export async function queue() {
   return Object.entries(await chrome.storage.local.get(null)).filter(([key]) => key.startsWith('queue:')).map(([, value]) => value as QueueItem);
 }
