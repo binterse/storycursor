@@ -1,12 +1,12 @@
 import { chromium, expect, test } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
-import { inspectPopup, popupCommand } from './chrome-popup';
+import { extensionPath, inspectPopup, popupCommand } from './chrome-popup';
 
 const fixtures = [
   {
     site: 'MangaKatana', url: 'https://mangakatana.com/manga/orbit-library.1042/c157.5', progress: '157.5',
-    title: 'The Archivist Who Opened a Library on the Moon and Ended Up Cataloguing Every Forgotten Star in the Known Universe — Chapter 157.5',
+    title: 'Chapter 157.5 - The Archivist Who Opened a Library on the Moon and Ended Up Cataloguing Every Forgotten Star in the Known Universe',
+    visibleTitle: 'The Archivist Who Opened a Library on the Moon and Ended Up Cataloguing Every Forgotten Star in the Known Universe',
   },
   {
     site: 'MangaReader', url: 'https://mangareader.to/read/orbit-library-42/en/chapter-3', progress: '3',
@@ -47,11 +47,11 @@ type Layout = { fullTitle: string; progress: string; lines: number; width: numbe
 for (const fixture of fixtures) {
   test(fixture.site + ' keeps the title and action within the popup', async ({ browserName }, info) => {
     test.skip(browserName !== 'chromium');
-    const extensionPath = resolve(info.project.name === 'release' ? 'dist/release/extension' : 'dist/extension');
+    const path = extensionPath(info.project.name);
     const profile = info.outputPath('profile');
     const context = await chromium.launchPersistentContext(profile, {
       channel: 'chromium', headless: true,
-      args: ['--disable-extensions-except=' + extensionPath, '--load-extension=' + extensionPath,
+      args: ['--disable-extensions-except=' + path, '--load-extension=' + path,
         '--enable-unsafe-extension-debugging', '--remote-debugging-port=0'],
     });
     try {

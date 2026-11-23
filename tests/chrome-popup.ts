@@ -1,5 +1,13 @@
 import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+
+export function extensionPath(project: string) {
+  const release = project === 'release';
+  const root = process.env.STORYCURSOR_SYSTEM_BUILD === '1'
+    ? 'dist/system/' + (release ? 'release' : 'debug')
+    : (release ? 'dist/release' : 'dist');
+  return resolve(root, 'extension');
+}
 
 export async function popupCommand<T>(profile: string, targetId: string, method: string, params: object) {
   const [port] = (await readFile(join(profile, 'DevToolsActivePort'), 'utf8')).split('\n');

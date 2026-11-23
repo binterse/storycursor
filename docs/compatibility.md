@@ -20,7 +20,7 @@ For a live test, install on the target browser, open an enrolled synthetic chapt
 | --- | --- | --- |
 | mangakatana.com | `/manga/slug.123` and `/manga/slug.123/c12.5` | Unrecognized chapter forms |
 | mangareader.to | `/slug-123` and `/read/slug-123/en/chapter-12.5` | Other languages, volumes and unrecognized variants |
-| mangadex.org | `/title/<uuid>` and optional title slug | Chapter URLs with a UUID and optional page number use the official MangaDex API. If the API is unavailable, a recognized MangaDex reader title can supply the chapter number. A title alone cannot verify a series match. |
+| mangadex.org | `/title/<uuid>` and optional title slug | Chapter URLs with a UUID and optional page number use the official MangaDex API. If the API is unavailable, a recognized MangaDex reader title can supply the chapter number. An exact chapter link saved to an enrolled record also matches other pages of that chapter. Another chapter requires separate identity evidence or manual selection. |
 | Other | Active page URL and page title | Choose record and enter progress manually. Remember an exact page after explicit confirmation. |
 
 Recognized URL forms with query strings fall back to manual handling. Known canonical URLs are compared across both tabs. Test fixtures exercise patterns using invented titles and identifiers.
@@ -35,3 +35,15 @@ Chrome for Testing exercised the 0.2 options page, folder proposal, mock folder 
 Desktop popup layout regression tests cover MangaKatana, MangaReader, MangaDex title pages and an unknown site using synthetic pages at the respective URL patterns. They check title truncation, chapter display, popup width and action visibility. The desktop save test also covers connected manual entry. These tests do not certify live site access or the FAB popup viewport.
 
 A live desktop staging test used synthetic MangaKatana and MangaReader chapter pages with the actual Google Sheets deployment. It saved on MangaKatana, linked MangaReader as a backup, reopened the same record by the new canonical source, and saved chapter 159. It also exposed differences in URL and auto-link handling on Apps Script, covered by regression tests.
+
+## Automated system checks
+
+Install the Playwright browser once with `pnpm exec playwright install chromium`. `pnpm system:test` builds both extension variants under `dist/system`, then opens the actual toolbar popup in a fresh Chrome for Testing profile in each browser test. No extension reload or toolbar click is needed in the developer's browser. GitHub Actions also runs the browser suite for both variants.
+
+The MangaDex outage scenario injects a reader title and a 403 response, adds a manga through the popup, reopens another page of the same chapter and verifies there is still one record. It also opens a different chapter ID with the same title and checks that the saved record is not selected. The save goes through the extension worker and the real operation engine backed by a synthetic workbook. This run needs no Google connection.
+
+The MangaKatana workflow replays the URL and document title patterns observed on chapters 234 and 235. It adds the manga with the series title and source, then opens the next chapter and verifies that one click updates the same record.
+
+`pnpm system:live` checks the installed toolbar on public MangaKatana chapters 234 and 235 of *Return of the Frozen Player* and on MangaReader's *Vagabond* chapter 1. It also checks the public MangaDex API's chapter-to-series metadata. It reports a failed check for unavailable readers and writes successful popup screenshots under `test-results/live`. In the 0.3.3 check, both MangaKatana chapters and the MangaDex API passed. MangaReader's navigation timed out. The live checks make no Google Sheets requests and do not load the live MangaDex reader site.
+
+For a configured staging service, `pnpm verify:staging` checks the workbook binding and whether the deployed service recognizes the current add-manga command without inserting a row. See [the staging probe](setup.md).

@@ -1,7 +1,7 @@
 import { chromium, expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
-import { inspectPopup } from './chrome-popup';
+import { join } from 'node:path';
+import { extensionPath, inspectPopup } from './chrome-popup';
 import { readDebugPage } from '../apps/extension/debug-page';
 
 const endpoint = 'https://script.google.com/macros/s/debug-fixture/exec';
@@ -63,7 +63,7 @@ async function mockPopupList(profile: string, target: string) {
 test('toolbar creation keeps debug context local and exposes export only in debug', async ({ browserName }, info) => {
   test.skip(browserName !== 'chromium');
   const release = info.project.name === 'release';
-  const path = resolve(release ? 'dist/release/extension' : 'dist/extension');
+  const path = extensionPath(info.project.name);
   const profile = info.outputPath('profile');
   const ctx = await chromium.launchPersistentContext(profile, {
     channel:'chromium', headless:true, acceptDownloads:true,

@@ -1,17 +1,16 @@
-import { popupSnapshot } from './chrome-popup';
+import { extensionPath, popupSnapshot } from './chrome-popup';
 import { chromium, expect, test } from '@playwright/test';
-import { resolve } from 'node:path';
 import { fixture, series, hash, MockBook } from './fixtures';
 import { apply } from '../packages/sheets-adapter/engine';
 import { anchor, describe, fields, literal } from '../packages/sheets-adapter/schema';
 
 test('MV3 action detects the active tab and retries an uncertain save with the same ID', async ({ browserName }, info) => {
   test.skip(browserName !== 'chromium');
-  const extensionPath = resolve(info.project.name === 'release' ? 'dist/release/extension' : 'dist/extension');
+  const path = extensionPath(info.project.name);
   const profile = info.outputPath('profile');
   const context = await chromium.launchPersistentContext(profile, {
     channel: 'chromium', headless: true,
-    args: ['--disable-extensions-except=' + extensionPath, '--load-extension=' + extensionPath, '--enable-unsafe-extension-debugging', '--remote-debugging-port=0'],
+    args: ['--disable-extensions-except=' + path, '--load-extension=' + path, '--enable-unsafe-extension-debugging', '--remote-debugging-port=0'],
   });
   try {
     const [existing] = context.serviceWorkers();

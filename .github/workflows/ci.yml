@@ -18,11 +18,9 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
-      - run: pnpm build
       - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm e2e
+      - run: pnpm system:test
       - run: pnpm package
-      - run: pnpm e2e:release
       - uses: actions/upload-artifact@v4
         with:
           name: storycursor

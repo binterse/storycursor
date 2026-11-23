@@ -13,6 +13,10 @@ export function chapterId(pageUrl: string): string | undefined {
   if (id && uuid.test(id)) return id;
 }
 
+export function chapterSource(pageUrl: string) {
+  const id = chapterId(pageUrl);
+  return id ? origin + '/chapter/' + id : undefined;
+}
 function object(value: unknown): Record<string, unknown> | undefined {
   if (value && typeof value === 'object' && !Array.isArray(value)) return value as Record<string, unknown>;
 }

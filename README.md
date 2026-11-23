@@ -32,14 +32,15 @@ pnpm install --frozen-lockfile
 pnpm lint
 pnpm typecheck
 pnpm test
-pnpm build
 pnpm exec playwright install chromium
-pnpm e2e
+pnpm system:test
+pnpm system:live
 pnpm package
-pnpm e2e:release
 ```
 
-- `pnpm build` builds **StoryCursor (Debug)** in `dist/extension`. Reload this folder during local development. `pnpm dev` watches TypeScript files.
+- `pnpm system:test` builds and installs debug and release into fresh Chrome for Testing profiles. It covers first save, one-click chapter updates, matching after reopening, lost responses, long-title layout and debug-only capture. It uses reader fixtures and a synthetic workbook. The local Chrome installation and `dist/extension` are untouched.
+- `pnpm system:live` opens public reader pages in Chrome for Testing and checks the toolbar title and chapter. It also checks the public MangaDex chapter API. A changed site or unreachable reader fails the run. See [coverage and test limits](docs/compatibility.md#automated-system-checks).
+- `pnpm build` prepares **StoryCursor (Debug)** in `dist/extension` for when you want to update a manually installed copy. `pnpm dev` watches TypeScript files.
 - `pnpm package` builds the release into `dist/release/extension` and puts the store ZIP in `dist/release`. Both modes also build their own Apps Script output beside the extension.
 - When a new manga is added from a page in a debug build, StoryCursor saves a bounded diagnostic snapshot in that browser profile. After a successful save, export it from **Settings → Debug diagnostics**. Review the file before sharing it in an issue or pull request. See [what debug captures contain](docs/privacy.md#debug-captures).
 

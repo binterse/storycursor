@@ -61,10 +61,12 @@ export type Entry = {
 export type Observation = { title: string; url: string; series?: string; progress?: string };
 export type Mapping = { source: string; id: string };
 
-export function candidates(observation: Observation, entries: Entry[], mapping?: Mapping, canonicalize = sourceKey) {
+export function candidates(observation: Observation, entries: Entry[], mapping?: Mapping, canonicalize = sourceKey, exactPageSource?: string) {
   const stable = sourceKey(observation.series ?? observation.url);
   const key = titleKey(observation.title);
-  const exactUrl = (entry: Entry) => !!observation.series && entry.sources.some(url => canonicalize(url) === stable);
+  const exactUrl = (entry: Entry) => entry.sources.some(url =>
+    (!!observation.series && canonicalize(url) === stable) ||
+    (!!exactPageSource && sourceKey(url) === exactPageSource));
   const verified = entries.filter(entry => exactUrl(entry) || (stable && mapping?.source === stable && entry.id === mapping.id));
   const available = verified.length === 1 && verified[0]!.id ? verified[0] : undefined;
   return {

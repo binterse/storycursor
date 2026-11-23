@@ -1,7 +1,8 @@
 import { build, context } from 'esbuild';
 import { mkdir, copyFile, readFile, writeFile } from 'node:fs/promises';
 const debug = !process.argv.includes('--release');
-const root = debug ? 'dist' : 'dist/release';
+const system = process.argv.includes('--system');
+const root = system ? ('dist/system/' + (debug ? 'debug' : 'release')) : (debug ? 'dist' : 'dist/release');
 const outdir = root + '/extension';
 await mkdir(outdir, { recursive: true });
 await Promise.all(['popup.html','options.html','popup.css','icon-128.png'].map(file => copyFile('apps/extension/' + file, outdir + '/' + file)));

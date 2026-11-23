@@ -1,7 +1,7 @@
 import { captureNewManga } from './debug-storage';
 import { activePage } from './browser';
 import { canonicalSeries, extract } from '../../packages/site-adapters/extract';
-import { chapterId, resolveChapter } from '../../packages/site-adapters/mangadex';
+import { chapterId, chapterSource, resolveChapter } from '../../packages/site-adapters/mangadex';
 import { aliases, candidates, parseProgress, sourceKey, titleKey, type Entry, type Mapping, type Observation } from '../../packages/core/domain';
 import type { Command, CommandName, MangaStart } from '../../packages/core/commands';
 import { config, queue, queueKey, remote, type Config, type QueueItem } from './sync';
@@ -109,12 +109,13 @@ async function renderWorkspace(selectedId?: string) {
   }
 
   const series = observation?.series;
+  const exactChapter = observation && chapterSource(observation.url);
   const stable = observation && sourceKey(series ?? observation.url);
   const mappingKey = stable && 'mapping:' + connection.endpoint + ':' + connection.binding + ':' + stable;
   const mapping: Mapping | undefined = mappingKey ? (await chrome.storage.local.get(mappingKey))[mappingKey] as Mapping | undefined : undefined;
-  const match = observation && candidates({ ...observation, title: pageTitle }, entries, mapping, canonicalSeries);
-  const sourceClaimed = !!series && entries.some(record =>
-    record.sources.some(url => (canonicalSeries(url) ?? sourceKey(url)) === series));
+  const match = observation && candidates({ ...observation, title: pageTitle }, entries, mapping, canonicalSeries, exactChapter);
+  const sourceClaimed = entries.some(record => record.sources.some(url =>
+    (!!series && canonicalSeries(url) === series) || (!!exactChapter && sourceKey(url) === exactChapter)));
   const evidence = new Map(match?.matches.map(candidate => [candidate.entry, candidate.evidence]));
   const ordered = [...entries].sort((a,b) => Number(evidence.has(b)) - Number(evidence.has(a)));
 
@@ -142,7 +143,7 @@ async function renderWorkspace(selectedId?: string) {
       const duplicate = entries.some(record => aliases(record.title).some(alias => titleKey(alias) === titleKey(name)));
       if (duplicate && !window.confirm('A record already uses this title. Add a separate manga?')) return;
       await submit(connection, 'CreateManga', undefined, name, duplicate, {
-        source: series, progress: chapterValue() || undefined,
+        source: series ?? exactChapter, progress: chapterValue() || undefined,
       }, observation?.url);
       return;
     }

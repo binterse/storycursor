@@ -1,16 +1,19 @@
 import { sourceKey, type Observation } from '../core/domain';
 
-type Extractor = (url: { origin: string; pathname: string }) => Pick<Observation, 'series' | 'progress'> | undefined;
+type Extractor = (url: { origin: string; pathname: string }, title: string) => Partial<Pick<Observation, 'series' | 'progress' | 'title'>> | undefined;
 
 const mangaDex: Extractor = url => {
   if (url.origin !== 'https://mangadex.org') return;
   const match = /^\/title\/([0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})(?:\/[a-z0-9-]+)?\/?$/.exec(url.pathname);
   return match ? { series: url.origin + '/title/' + match[1] } : {};
 };
-const mangaKatana: Extractor = url => {
+const mangaKatana: Extractor = (url, title) => {
   if (url.origin !== 'https://mangakatana.com') return;
   const match = /^\/manga\/([a-z0-9]+(?:-[a-z0-9]+)*\.\d+)(?:\/c(\d+(?:\.\d+)?))?\/?$/.exec(url.pathname);
-  return match ? { series: url.origin + '/manga/' + match[1], progress: match[2] } : {};
+  if (!match) return {};
+  const heading = /^Chapter\s+(\d+(?:\.\d+)?)\s+[-–]\s+(.+)$/i.exec(title);
+  const cleanTitle = match[2] && heading?.[1] === match[2] ? heading[2] : undefined;
+  return { series: url.origin + '/manga/' + match[1], progress: match[2], title: cleanTitle ?? title };
 };
 const mangaReader: Extractor = url => {
   if (url.origin !== 'https://mangareader.to') return;
@@ -28,7 +31,7 @@ export function extract(page: { url: string; title: string }): Observation {
   if (!match?.[1] || !match[2] || match[3]) return base;
   const url = { origin: match[1], pathname: match[2] };
   for (const adapter of [mangaDex, mangaKatana, mangaReader]) {
-    const detected = adapter(url);
+    const detected = adapter(url, base.title);
     if (detected) return { ...base, ...detected };
   }
   return base;
