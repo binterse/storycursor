@@ -17,6 +17,11 @@ const fixtures = [
     title: '月の図書館と星の秘密を巡る長い物語'.repeat(9),
   },
   {
+    site: 'MangaDex reader without API metadata',
+    url: 'https://mangadex.org/chapter/0395641a-d662-4a40-b349-cbb04c683b3a/8', progress: '3',
+    title: '8 | Chapter 3 - Orbit Library - MangaDex', visibleTitle: 'Orbit Library',
+  },
+  {
     site: 'Unrecognized site', url: 'https://reader.example.test/books/orbit', progress: '',
     title: 'UnbrokenTitle'.repeat(27),
   },
@@ -52,6 +57,7 @@ for (const fixture of fixtures) {
     try {
       const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
       const id = new URL(worker.url()).hostname;
+      await context.route('https://api.mangadex.org/chapter/**', route => route.fulfill({ status:403 }));
       await context.route(fixture.url, route => route.fulfill({
         contentType: 'text/html; charset=utf-8', body: '<title>' + fixture.title + '</title>',
       }));
@@ -72,7 +78,7 @@ for (const fixture of fixtures) {
         result = await inspectPopup<Layout | null>(profile, targetId!, measure);
         return result?.buttonOnScreen && result.width >= 320;
       }).toBe(true);
-      expect(result).toMatchObject({ fullTitle: fixture.title, progress: fixture.progress, overflow: false });
+      expect(result).toMatchObject({ fullTitle: fixture.visibleTitle ?? fixture.title, progress: fixture.progress, overflow: false });
       expect(result!.lines).toBeLessThanOrEqual(2.01);
       const screenshot = await popupCommand<{ data: string }>(profile, targetId!, 'Page.captureScreenshot', { format: 'png' });
       await writeFile(info.outputPath('popup.png'), Buffer.from(screenshot.data, 'base64'));

@@ -20,11 +20,11 @@ For a live test, install on the target browser, open an enrolled synthetic chapt
 | --- | --- | --- |
 | mangakatana.com | `/manga/slug.123` and `/manga/slug.123/c12.5` | Unrecognized chapter forms |
 | mangareader.to | `/slug-123` and `/read/slug-123/en/chapter-12.5` | Other languages, volumes and unrecognized variants |
-| mangadex.org | `/title/<uuid>` and optional title slug | Chapter URLs with a UUID and optional page number use the official MangaDex API. Missing, mismatched or ambiguous metadata leaves the affected fields manual. |
+| mangadex.org | `/title/<uuid>` and optional title slug | Chapter URLs with a UUID and optional page number use the official MangaDex API. If the API is unavailable, a recognized MangaDex reader title can supply the chapter number. A title alone cannot verify a series match. |
 | Other | Active page URL and page title | Choose record and enter progress manually. Remember an exact page after explicit confirmation. |
 
 Recognized URL forms with query strings fall back to manual handling. Known canonical URLs are compared across both tabs. Test fixtures exercise patterns using invented titles and identifiers.
-The live API returned expected chapter metadata to a direct HTTP client. In headless Chrome for Testing, the MangaDex API returned HTTP 403 with a bot challenge and the popup fell back to manual entry. Successful live resolution in an interactive browser remains unverified.
+The live API returned expected chapter metadata to a direct HTTP client. In headless Chrome for Testing, the MangaDex API returned HTTP 403 with a bot challenge and the popup fell back to manual entry. Newer builds can also use a recognized MangaDex reader title for the chapter number in this case.
 
 MangaDex chapter metadata is provided by [MangaDex](https://mangadex.org/). The resolver requests the chapter entity and requires exactly one matching manga relationship. [MangaDex API specification](https://api.mangadex.org/docs/static/api.yaml).
 

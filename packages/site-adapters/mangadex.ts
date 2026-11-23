@@ -31,18 +31,26 @@ export function chapterMetadata(input: unknown, expectedId: string): Pick<Observ
   return { series: origin + '/title/' + id.toLowerCase(), progress };
 }
 
+function readerTitle(observation: Observation): Observation {
+  const parsed = /^(?:\d+\s*\|\s*)?Chapter\s+(\d{1,12}(?:\.\d{1,10})?)\s+[-–|:]\s+(.+?)\s+[-–|]\s+MangaDex$/i.exec(observation.title.trim());
+  if (!parsed?.[1] || !parsed[2] || parseProgress(parsed[1]).kind !== 'ordinal') return observation;
+  return { ...observation, title: parsed[2], progress: parsed[1] };
+}
+
 export async function resolveChapter(observation: Observation, fetcher: typeof fetch = fetch): Promise<Observation> {
   const id = chapterId(observation.url);
   if (!id) return observation;
+  // A reader title can identify the displayed chapter but cannot establish a series relationship.
+  const fallback = readerTitle(observation);
   try {
     const response = await fetcher(api + '/chapter/' + id, {
       credentials: 'omit', redirect: 'error', referrerPolicy: 'no-referrer',
       signal: AbortSignal.timeout(4500),
     });
-    if (!response.ok) return observation;
+    if (!response.ok) return fallback;
     const metadata = chapterMetadata(await response.json(), id);
-    return metadata ? { ...observation, ...metadata } : observation;
+    return metadata ? { ...fallback, series: metadata.series, progress: metadata.progress ?? fallback.progress } : fallback;
   } catch {
-    return observation;
+    return fallback;
   }
 }

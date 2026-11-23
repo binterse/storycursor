@@ -39,3 +39,29 @@ it('falls back without inventing progress after network failure or for unsupport
   expect(chapterId(url + '?series=another')).toBeUndefined();
   expect(await resolveChapter(observation, fetcher)).toBe(observation);
 });
+
+it('reads a MangaDex reader title when the chapter API is blocked', async () => {
+  const page = { url: url + '/8', title: '8 | Chapter 3 - Boku wa Ohime-sama ni Narenai - MangaDex' };
+  const blocked = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 403 }));
+  expect(await resolveChapter(page, blocked)).toEqual({ ...page, title:'Boku wa Ohime-sama ni Narenai', progress:'3' });
+  const offline = vi.fn<typeof fetch>().mockRejectedValue(new Error('Offline'));
+  const decimal = { ...page, title: 'Chapter 156.5 - Orbit Library | MangaDex' };
+  expect(await resolveChapter(decimal, offline)).toEqual({ ...decimal, title:'Orbit Library', progress:'156.5' });
+  expect(await resolveChapter({ ...page, url:'https://mangadex.org/title/' + manga }, blocked))
+    .not.toHaveProperty('progress');
+});
+
+it('prefers verified metadata and rejects title lookalikes', async () => {
+  const title = 'Page 8 | Chapter 999 - Orbit Library - MangaDex';
+  const success = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify(payload)));
+  expect(await resolveChapter({url,title}, success)).toMatchObject({ series, progress:'156.5' });
+  const withoutNumber = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+    ...payload, data:{ ...payload.data, attributes:{ chapter:null } },
+  })));
+  expect(await resolveChapter({ url, title:'8 | Chapter 3 - Orbit Library - MangaDex' }, withoutNumber))
+    .toMatchObject({ series, progress:'3' });
+  const offline = vi.fn<typeof fetch>().mockRejectedValue(new Error('Offline'));
+  for (const badTitle of ['Chapter 3 - Orbit Library', 'Bonus Chapter 3 - Orbit Library - MangaDex', 'Orbit Library - MangaDex']) {
+    expect(await resolveChapter({url,title:badTitle}, offline)).not.toHaveProperty('progress');
+  }
+});
