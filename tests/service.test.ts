@@ -120,3 +120,10 @@ it('guards managed setup and binds only after verifying the new workbook schema'
   expect(post({ action:'folders', token })).toEqual({ status:'ready', folders:null });
   expect(create).toHaveBeenCalledTimes(2);
 });
+
+it('recognizes a chapterless CreateManga probe and rejects its non-absent revision without writing', () => {
+  const cmd = { ...command(), type:'CreateManga', target:randomUUID(),
+    expected:'0'.repeat(64), value:'No-write deployment probe', confirmed:false, initial:{} };
+  expect(post({ action:'submit', token, command:cmd })).toEqual({ status:'conflict', message:'Entry already exists.' });
+  expect(batch).not.toHaveBeenCalled();
+});

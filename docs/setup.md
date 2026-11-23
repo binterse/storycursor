@@ -38,3 +38,9 @@ For a fresh test deployment, set `MANAGED_DRIVE=yes` and `EXCLUSIVE_WRITER=no`, 
 In StoryCursor select **Connect Google Drive**, enter the test deployment URL and token, then choose a folder. StoryCursor suggests an app-accessible folder named **StoryCursor** or offers **StoryCursor (create new)**. You can select another visible folder or change the new name. Drive only returns folders the deployment has access to under its file scope. An existing folder that has never been granted to the app may be absent. This build uses service credentials in the extension, and direct Google sign-in and the whole-Drive file picker are still pending.
 
 On confirmation, the service creates or reopens its tagged StoryCursor workbook in the selected folder and initializes its tabs. It leaves pre-existing workbooks in place. A deployment that already has a `SPREADSHEET_ID` continues to use it. Enable exclusive staging writes separately once you have reviewed the resulting folder and workbook.
+
+## Verify an updated staging deployment
+
+When editing an existing web app, select **New version** and verify both the active version number and the unchanged endpoint URL after deploying. A saved description can update independently of the active code.
+
+With staging writes enabled, set `STORYCURSOR_STAGING_ENDPOINT`, `STORYCURSOR_STAGING_TOKEN` and `STORYCURSOR_STAGING_SPREADSHEET_ID` in your shell from the reviewed test deployment. Run `pnpm verify:staging`. It checks the workbook binding, then sends a valid-shaped creation command with a disallowed revision. An expected conflict proves the live server recognized the new creation command without writing a row. Keep the token in your local environment.
