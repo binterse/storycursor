@@ -20,6 +20,11 @@ For a live test, install on the target browser, open an enrolled synthetic chapt
 | --- | --- | --- |
 | mangakatana.com | `/manga/slug.123` and `/manga/slug.123/c12.5` | Unrecognized chapter forms |
 | mangareader.to | `/slug-123` and `/read/slug-123/en/chapter-12.5` | Other languages, volumes and unrecognized variants |
+| www.mangaread.org | `/manga/slug/` and `/manga/slug/chapter-12/` | A dash-separated decimal like `chapter-12-5` needs the reader title to confirm `12.5` |
+| manhuaplus.org | `/manga/slug` and `/manga/slug/chapter-12` | Alternate URL formats |
+| manhuatop.org | `/manhua/slug/` and `/manhua/slug/chapter-12/` | Alternate URL formats |
+| m.fanfox.net | `/manga/slug/`, chapter paths under `/manga/slug/c012/` and `/roll_manga/slug/c012/` with optional page number like `1.html` | Other hosts and paths with volume markers |
+| www.mgeko.cc | `/manga/slug/` and `/reader/en/slug-chapter-12-eng-li/` | Other languages and reader variants |
 | mangadex.org | `/title/<uuid>` and optional title slug | Chapter URLs with a UUID and optional page number use the official MangaDex API. If the API is unavailable, a recognized MangaDex reader title can supply the chapter number. An exact chapter link saved to an enrolled record also matches other pages of that chapter. Another chapter requires separate identity evidence or manual selection. |
 | Other | Active page URL and page title | Choose record and enter progress manually. Remember an exact page after explicit confirmation. |
 
@@ -42,7 +47,9 @@ Install the Playwright browser once with `pnpm exec playwright install chromium`
 
 The MangaDex outage scenario injects a reader title and a 403 response, adds a manga through the popup, reopens another page of the same chapter and verifies there is still one record. It also opens a different chapter ID with the same title and checks that the saved record is not selected. The save goes through the extension worker and the real operation engine backed by a synthetic workbook. This run needs no Google connection.
 
-The MangaKatana workflow replays the URL and document title patterns observed on chapters 234 and 235. It adds the manga with the series title and source, then opens the next chapter and verifies that one click updates the same record.
+System tests replay two successive chapters for MangaKatana, MangaRead, ManhuaPlus, ManhuaTop, FanFox and MGeko. Each adds the manga with the series title and source, then verifies that one click on the next chapter updates the same record. The MangaRead case covers a fractional chapter.
+
+In the 0.3.5 desktop check, the installed toolbar completed add and update using the sites' real Next chapter links on MangaRead (including a MangaEffect redirect), ManhuaPlus, ManhuaTop and MGeko. Saves used a synthetic workbook. The FanFox reader timed out in the extension test profile; its URL patterns and save flow passed with synthetic pages.
 
 The popup tests also cover an existing manga visited on a new, identifiable series URL. The suggested update requires confirmation, then the next chapter can be saved with one click in the same browser profile. Duplicate titles require choosing a record in the popup. With only a MangaDex chapter ID and no series metadata, the title stays a suggestion for other chapter IDs.
 

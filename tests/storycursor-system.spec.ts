@@ -167,23 +167,49 @@ system('MangaDex keeps an exact chapter link through an API outage and requires 
   expect(fields(reader.book.data[0]!).progress).toBe('3');
 });
 
-system('MangaKatana adds a correctly titled manga and saves the next chapter in one click', async ({ reader }) => {
-  const title = 'Return of the Frozen Player';
-  const series = 'https://mangakatana.com/manga/return-of-the-frozen-player.25775';
-  await reader.page(series + '/c234', 'Chapter 234 - ' + title);
-  await reader.page(series + '/c235', 'Chapter 235 - ' + title);
-  const first = await reader.popup(series + '/c234', '234');
-  await expect.poll(first.label).toBe('Add manga');
-  await first.click();
-  await expect.poll(() => first.run("document.querySelector('[role=status]')?.textContent")).toBe('Confirmed saved');
-  expect(reader.book.data.map(fields)).toEqual([expect.objectContaining({ title, progress:'234', primary:series })]);
-  await first.close();
-  const second = await reader.popup(series + '/c235', '235');
-  await expect.poll(second.label).toBe('Update to chapter 235');
-  await second.click();
-  await expect.poll(() => second.run("document.querySelector('[role=status]')?.textContent")).toBe('Confirmed saved');
-  expect(reader.book.data.map(fields)).toEqual([expect.objectContaining({ title, progress:'235', primary:series })]);
-});
+const chapterWorkflows = [
+  { site:'MangaKatana', series:'https://mangakatana.com/manga/orbit-library.1042', chapters:[
+    { path:'/c234', chapter:'234', heading:'Chapter 234 - Orbit Library' },
+    { path:'/c235', chapter:'235', heading:'Chapter 235 - Orbit Library' },
+  ] },
+  { site:'MangaRead', series:'https://www.mangaread.org/manga/orbit-library/', chapters:[
+    { path:'chapter-67/', chapter:'67', heading:'Read Manga Orbit Library - Chapter 67' },
+    { path:'chapter-67-5/', chapter:'67.5', heading:'Read Manga Orbit Library - Chapter 67.5' },
+  ] },
+  { site:'ManhuaPlus', series:'https://manhuaplus.org/manga/orbit-library', chapters:[
+    { path:'/chapter-1', chapter:'1', heading:'Read Orbit Library Chapter 1 [Read new chapter at ManhuaPlus]' },
+    { path:'/chapter-2', chapter:'2', heading:'Read Orbit Library Chapter 2 [Read new chapter at ManhuaPlus]' },
+  ] },
+  { site:'ManhuaTop', series:'https://manhuatop.org/manhua/orbit-library/', chapters:[
+    { path:'chapter-0/', chapter:'0', heading:'Orbit Library — Chapter 0 | Manhua Top' },
+    { path:'chapter-1/', chapter:'1', heading:'Orbit Library — Chapter 1 | Manhua Top' },
+  ] },
+  { site:'FanFox', series:'https://m.fanfox.net/manga/orbit_library/', chapters:[
+    { url:'https://m.fanfox.net/roll_manga/orbit_library/c001/1.html', chapter:'1', heading:'Orbit Library' },
+    { url:'https://m.fanfox.net/roll_manga/orbit_library/c002/', chapter:'2', heading:'Orbit Library' },
+  ] },
+  { site:'MGeko', series:'https://www.mgeko.cc/manga/orbit-library/', chapters:[
+    { url:'https://www.mgeko.cc/reader/en/orbit-library-chapter-169-eng-li/', chapter:'169', heading:'Manga: Orbit Library Chapter - 169-eng-li' },
+    { url:'https://www.mgeko.cc/reader/en/orbit-library-chapter-170-eng-li/', chapter:'170', heading:'Manga: Orbit Library Chapter - 170-eng-li' },
+  ] },
+];
+
+for (const { site, series, chapters } of chapterWorkflows) {
+  system(site + ' adds a correctly titled manga and saves the next chapter in one click', async ({ reader }) => {
+    for (const [index, page] of chapters.entries()) {
+      const { chapter, heading } = page;
+      const address = 'url' in page ? page.url : series + page.path;
+      await reader.page(address, heading);
+      const popup = await reader.popup(address, chapter);
+      await expect.poll(popup.label).toBe(index === 0 ? 'Add manga' : 'Update to chapter ' + chapter);
+      await popup.click();
+      await expect.poll(() => popup.run("document.querySelector('[role=status]')?.textContent")).toBe('Confirmed saved');
+      expect(reader.book.data.map(fields)).toEqual([{ title:'Orbit Library', progress:chapter, primary:series, secondary:'' }]);
+      expect(reader.book.log.size).toBe(index + 1);
+      await popup.close();
+    }
+  });
+}
 
 system('a newly detected source can update an existing manga from the main popup and is remembered', async ({ reader }) => {
   const name = 'Moonlit Index';

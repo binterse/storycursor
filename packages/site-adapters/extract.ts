@@ -1,6 +1,5 @@
 import { sourceKey, type Observation } from '../core/domain';
-
-type Extractor = (url: { origin: string; pathname: string }, title: string) => Partial<Pick<Observation, 'series' | 'progress' | 'title'>> | undefined;
+import { additionalReaders, type Extractor } from './reader-formats';
 
 const mangaDex: Extractor = url => {
   if (url.origin !== 'https://mangadex.org') return;
@@ -30,7 +29,7 @@ export function extract(page: { url: string; title: string }): Observation {
   const match = /^(https:\/\/[^/?#]+)(\/[^?#]*)(\?[^#]*)?/.exec(normalized);
   if (!match?.[1] || !match[2] || match[3]) return base;
   const url = { origin: match[1], pathname: match[2] };
-  for (const adapter of [mangaDex, mangaKatana, mangaReader]) {
+  for (const adapter of [mangaDex, mangaKatana, mangaReader, ...additionalReaders]) {
     const detected = adapter(url, base.title);
     if (detected) return { ...base, ...detected };
   }

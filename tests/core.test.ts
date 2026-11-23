@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { aliases, candidates, parseProgress, sourceKey } from '../packages/core/domain';
 import { describe as entry, fields } from '../packages/sheets-adapter/schema';
-import { extract } from '../packages/site-adapters/extract';
+import { canonicalSeries, extract } from '../packages/site-adapters/extract';
 import { fixture, hash, series } from './fixtures';
 
 describe('import and matching', () => {
@@ -58,5 +58,24 @@ describe('extraction', () => {
       const title = '<img onerror=alert(1)>'.repeat(100);
       expect(extract({ url, title })).toEqual({ url, title: title.slice(0,400) });
     }
+  });
+
+  it('requires the displayed chapter to corroborate a dash-separated decimal', () => {
+    const url = 'https://www.mangaread.org/manga/orbit-library/chapter-67-5/';
+    expect(extract({ url, title:'Read Manga Orbit Library - Chapter 67-5' }).progress).toBeUndefined();
+    expect(extract({ url, title:'Read Manga Orbit Library - Chapter 67.5' }).progress).toBe('67.5');
+    expect(extract({ url:url + '?edition=other', title:'Read Manga Orbit Library - Chapter 67.5' }).series).toBeUndefined();
+  });
+
+  it('keeps recognized reader variants tied to the same series without accepting unrelated routes', () => {
+    const base = 'https://m.fanfox.net';
+    const series = base + '/manga/orbit_library/';
+    expect(canonicalSeries(series.slice(0,-1))).toBe(series);
+    expect(canonicalSeries(base + '/roll_manga/orbit_library/c000.5/2.html')).toBe(series);
+    expect(extract({ url:base + '/manga/orbit_library/c000.5/1.html', title:'Orbit Library' }).progress).toBe('0.5');
+    expect(canonicalSeries(base + '/roll_manga/orbit_library/')).toBeUndefined();
+    expect(canonicalSeries('https://www.mgeko.cc/reader/en/orbit-library-chapter-2-eng-ln/')).toBeUndefined();
+    expect(canonicalSeries('https://manhuaplus.org.example/manga/orbit-library/chapter-1')).toBeUndefined();
+    expect(canonicalSeries('https://manhuaplus.org/manhua/orbit-library/chapter-1')).toBeUndefined();
   });
 });

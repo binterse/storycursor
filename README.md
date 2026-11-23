@@ -21,7 +21,7 @@ StoryCursor is a Manifest V3 browser extension for saving manga progress to Goog
 | Record actions | Create, append an alias, change sources, remember a page or series on this device, or send an uncertain observation to review. |
 | Operation queue | See pending, submitted, confirmed, conflict and failed operations. Retry an unconfirmed submission using its original operation ID. Confirm a supported restore from a saved operation. |
 
-MangaKatana and MangaReader extract chapters from supported URLs. MangaDex resolves chapter UUIDs through its public API. Unknown URLs and unavailable metadata can be handled manually. [Supported URL patterns and browser evidence](docs/compatibility.md).
+StoryCursor extracts chapters from supported MangaKatana, MangaReader, MangaRead, ManhuaPlus, ManhuaTop, FanFox and MGeko URLs. MangaDex resolves chapter UUIDs through its public API. Unknown URLs and unavailable metadata can be handled manually. [Supported URL patterns and browser evidence](docs/compatibility.md).
 
 ## Develop
 
