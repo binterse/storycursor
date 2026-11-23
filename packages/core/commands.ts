@@ -2,9 +2,10 @@ import { aliasDelimiter, aliases, parseProgress, sourceKey, titleKey, type Scala
 
 export type Fields = { title: string; progress: Scalar | undefined; primary: string; secondary: string };
 export type Patch = Partial<{ [Key in keyof Fields]: Fields[Key] | null }>;
-export type CommandName = 'SetProgress' | 'CreateEntry' | 'AppendAlias' | 'AddSource' | 'SetPrimarySource' |
+export type CommandName = 'SetProgress' | 'CreateEntry' | 'CreateManga' | 'AppendAlias' | 'AddSource' | 'SetPrimarySource' |
   'RemoveSource' | 'LinkExistingEntry' | 'QueueForReview' | 'RestoreChange';
-export type Command = { operationId: string; type: CommandName; target: string; expected: string; value: Scalar; confirmed?: boolean };
+export type MangaStart = { source?: string; progress?: string };
+export type Command = { operationId: string; type: CommandName; target: string; expected: string; value: Scalar; confirmed?: boolean; initial?: MangaStart };
 export type Result = { status: 'saved'; operationId: string; target: string } |
   { status: 'conflict' | 'failed'; message: string };
 export interface Storage {
@@ -13,7 +14,7 @@ export interface Storage {
 }
 export class Conflict extends Error {}
 export const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const names = new Set<CommandName>(['SetProgress','CreateEntry','AppendAlias','AddSource','SetPrimarySource','RemoveSource','LinkExistingEntry','QueueForReview','RestoreChange']);
+const names = new Set<CommandName>(['SetProgress','CreateEntry','CreateManga','AppendAlias','AddSource','SetPrimarySource','RemoveSource','LinkExistingEntry','QueueForReview','RestoreChange']);
 
 export function validateCommand(input: unknown): Command {
   if (!input || typeof input !== 'object') throw new Conflict('Invalid command.');
@@ -23,7 +24,17 @@ export function validateCommand(input: unknown): Command {
       !/^(?:absent|[0-9a-f]{64})$/.test(cmd.expected) ||
       !(typeof cmd.value === 'string' && cmd.value.length <= 2000 || typeof cmd.value === 'number' && Number.isFinite(cmd.value)) ||
       !(cmd.confirmed === undefined || typeof cmd.confirmed === 'boolean')) throw new Conflict('Invalid command.');
-  return { operationId: cmd.operationId, type: cmd.type, target: cmd.target, expected: cmd.expected, value: cmd.value, confirmed: cmd.confirmed };
+  let initial: MangaStart | undefined;
+  if (cmd.initial !== undefined) {
+    const { source, progress } = cmd.initial ?? {};
+    if (cmd.type !== 'CreateManga' || !cmd.initial || typeof cmd.initial !== 'object' || Array.isArray(cmd.initial) ||
+        (source !== undefined && (typeof source !== 'string' || !source || source.length > 2000)) ||
+        (progress !== undefined && (typeof progress !== 'string' || !progress || progress.length > 2000))) {
+      throw new Conflict('Invalid manga details.');
+    }
+    initial = { source, progress };
+  }
+  return { operationId: cmd.operationId, type: cmd.type, target: cmd.target, expected: cmd.expected, value: cmd.value, confirmed: cmd.confirmed, initial };
 }
 
 function plain(value: Scalar) {
@@ -45,6 +56,15 @@ export function prepare(command: Command, fields: Fields, restore?: Patch): Patc
           (after.value === before.value && old !== value)) throw new Conflict('Confirm replacing the existing progress.');
       }
       return { progress: value };
+    }
+    case 'CreateManga': {
+      const title = plain(value);
+      if (title.includes(aliasDelimiter)) throw new Conflict('Enter a single title.');
+      const source = command.initial?.source;
+      const primary = source === undefined ? undefined : sourceKey(source);
+      if (source !== undefined && !primary) throw new Conflict('Enter a valid HTTP or HTTPS source URL.');
+      const progress = command.initial?.progress;
+      return { title, ...(primary ? { primary } : {}), ...(progress === undefined ? {} : { progress: plain(progress) }) };
     }
     case 'CreateEntry':
       if (plain(value).includes(aliasDelimiter)) throw new Conflict('Enter a single title.');

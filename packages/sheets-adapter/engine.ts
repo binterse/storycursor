@@ -1,4 +1,4 @@
-import { sourceKey } from '../core/domain';
+import { aliases, sourceKey, titleKey } from '../core/domain';
 import { canonicalSeries } from '../site-adapters/extract';
 import { Conflict, prepare, uuid, validateCommand, type Command, type Fields, type Patch, type Result } from '../core/commands';
 import { anchor, columns, describe, fields, literal, revision, scalar, writable, type Cell, type Hash, type Row } from './schema';
@@ -32,10 +32,16 @@ export function apply(book: Workbook, input: unknown): Result {
     }
     const rows = book.rows();
     const collisions = rows.filter(row => String(scalar(row.cells[columns[row.sheet].identity]) ?? '').split(':')[0] === cmd.target);
-    const creating = cmd.type === 'CreateEntry';
+    const creating = cmd.type === 'CreateEntry' || cmd.type === 'CreateManga';
     let row = collisions[0];
     if (creating) {
       if (cmd.expected !== 'absent' || collisions.length) throw new Conflict('Entry already exists.');
+      if (cmd.type === 'CreateManga' && !cmd.confirmed && typeof cmd.value === 'string') {
+        const key = titleKey(cmd.value);
+        if (rows.some(row => aliases(fields(row).title).some(alias => titleKey(alias) === key))) {
+          throw new Conflict('A record already has this title. Review it before adding a duplicate.');
+        }
+      }
       row = { sheet: 'reading', sheetId: book.readingSheetId(), index: -1, cells: [] };
     } else {
       if (!row || collisions.length !== 1 || describe(row, book.hash).id !== cmd.target) throw new Conflict('Record identity is missing or detached.');
@@ -47,7 +53,7 @@ export function apply(book: Workbook, input: unknown): Result {
     const referenced = cmd.type === 'RestoreChange' && typeof cmd.value === 'string' && uuid.test(cmd.value)
       ? book.lookup(cmd.value) : undefined;
     const restore = referenced?.command.target === cmd.target && referenced.afterRevision === cmd.expected &&
-      referenced.command.type !== 'CreateEntry' ? referenced.before : undefined;
+      !['CreateEntry', 'CreateManga'].includes(referenced.command.type) ? referenced.before : undefined;
     const patch = prepare(cmd, before, restore);
     const newSources = [patch.primary, patch.secondary].flatMap(source => {
       if (!source || source === before.primary || source === before.secondary) return [];

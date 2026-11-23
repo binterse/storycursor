@@ -23,15 +23,15 @@ const fixtures = [
 ];
 const measure = `(() => {
   const title = document.querySelector('.page-title');
-  const field = document.querySelector('#progress-value');
+  const summary = document.querySelector('.chapter-summary');
   const button = [...document.querySelectorAll('button')].find(button => button.textContent === 'Connect Google Drive');
-  if (!title || !field || !button) return null;
+  if (!title || !summary || !button) return null;
   const rect = title.getBoundingClientRect();
   const action = button.getBoundingClientRect();
   return {
     fullTitle: title.title,
     width: innerWidth,
-    progress: field.value,
+    progress: (summary.textContent ?? "").replace(/^Chapter /, "").replace(/^unavailable$/, ""),
     lines: rect.height / parseFloat(getComputedStyle(title).lineHeight),
     overflow: document.documentElement.scrollWidth > innerWidth + 1,
     buttonOnScreen: action.height >= 40 && action.bottom <= innerHeight,

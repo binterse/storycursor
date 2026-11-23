@@ -4,7 +4,7 @@ Use the same Manifest V3 package for desktop and FAB. The private listing is for
 
 ## Upload material
 
-- ZIP from `pnpm build && pnpm package` at `dist/storycursor-0.2.2.zip`
+- ZIP from `pnpm build && pnpm package` at `dist/storycursor-0.3.0.zip`
 - Screenshot at [1280 × 800](screenshot-1280x800.png)
 - Small promotional tile at [440 × 280](promo-440x280.png)
 - The ZIP includes the 128 px icon.

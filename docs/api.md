@@ -16,6 +16,7 @@ A command includes a UUID `operationId`, UUID `target`, `expected` (64-hex revis
 | --- | --- |
 | SetProgress | Text or number. Updates only reading B. Requires confirmation for downgrades, incomparable changes and changes in representation at equal ordinal progress. |
 | CreateEntry | Title. Appends to reading with a new target UUID and `expected: "absent"`. Set a source and progress separately. |
+| CreateManga | Title in value and optional initial source and chapter. The record, detected chapter and source are appended together. The server rejects a duplicate title unless confirmed and never creates a partial record on an older deployment. |
 | AppendAlias | One alias. Appends with the exact legacy delimiter. |
 | AddSource | HTTP(S) URL. Fills the backup slot when free. |
 | SetPrimarySource | HTTP(S) URL. Moves the previous primary URL to backup where possible. Occupied slots can force a conflict. |

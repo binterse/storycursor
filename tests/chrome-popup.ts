@@ -30,6 +30,6 @@ export async function inspectPopup<T>(profile: string, targetId: string, express
 
 export function popupSnapshot(profile: string, targetId: string) {
   return inspectPopup<{ title: string; progress: string }>(profile, targetId,
-    '({ title: document.querySelector(".page-title")?.textContent, progress: document.querySelector("#progress-value")?.value })',
+    '({ title: document.querySelector(".page-title")?.textContent, progress: (document.querySelector(".chapter-summary")?.textContent ?? "").replace(/^Chapter /, "").replace(/^unavailable$/, "") })',
   );
 }
