@@ -42,7 +42,7 @@ type Layout = { fullTitle: string; progress: string; lines: number; width: numbe
 for (const fixture of fixtures) {
   test(fixture.site + ' keeps the title and action within the popup', async ({ browserName }, info) => {
     test.skip(browserName !== 'chromium');
-    const extensionPath = resolve('dist/extension');
+    const extensionPath = resolve(info.project.name === 'release' ? 'dist/release/extension' : 'dist/extension');
     const profile = info.outputPath('profile');
     const context = await chromium.launchPersistentContext(profile, {
       channel: 'chromium', headless: true,

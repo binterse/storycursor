@@ -1,3 +1,4 @@
+import { captureNewManga } from './debug-storage';
 import { activePage } from './browser';
 import { canonicalSeries, extract } from '../../packages/site-adapters/extract';
 import { chapterId, resolveChapter } from '../../packages/site-adapters/mangadex';
@@ -51,12 +52,15 @@ async function renderQueue() {
   }
 }
 
-async function submit(connection: Config, type: CommandName, entry: Entry | undefined, value: string, confirmed?: boolean, initial?: MangaStart) {
+async function submit(connection: Config, type: CommandName, entry: Entry | undefined, value: string, confirmed?: boolean, initial?: MangaStart, debugUrl?: string) {
   const operationId = crypto.randomUUID();
   const creating = type === 'CreateEntry' || type === 'CreateManga';
   const command: Command = { operationId, type, target: entry?.id ?? (creating ? crypto.randomUUID() : operationId),
     expected: entry?.revision ?? 'absent', value, confirmed, initial };
   const item: QueueItem = { command, endpoint: connection.endpoint, binding: connection.binding, state: 'Pending locally' };
+  if (STORYCURSOR_DEBUG && type === 'CreateManga' && debugUrl) {
+    await captureNewManga(operationId, debugUrl).catch(() => {});
+  }
   await chrome.storage.local.set({ [queueKey(operationId)]: item });
   const result = await send(item);
   if (result.state === 'Confirmed saved') await renderWorkspace(creating ? command.target : undefined);
@@ -139,7 +143,7 @@ async function renderWorkspace(selectedId?: string) {
       if (duplicate && !window.confirm('A record already uses this title. Add a separate manga?')) return;
       await submit(connection, 'CreateManga', undefined, name, duplicate, {
         source: series, progress: chapterValue() || undefined,
-      });
+      }, observation?.url);
       return;
     }
     const value = chapterValue();

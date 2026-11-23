@@ -1,3 +1,4 @@
+import { clearDebugCaptures, readDebugCaptures } from './debug-storage';
 import { action, app, details, element, input, report } from '../../packages/ui/popup';
 import { config, remote, validConfig, type Config, type FolderChoice } from './sync';
 
@@ -78,3 +79,25 @@ async function render() {
 }
 app.querySelector('h1')!.textContent = 'StoryCursor settings';
 await render();
+
+if (STORYCURSOR_DEBUG) {
+  const diagnostics = details('Debug diagnostics');
+  element('p', 'Saved manga captures stay in this browser profile. Review the export before sharing it.', diagnostics);
+  action('Download diagnostics', async () => {
+    const captures = await readDebugCaptures();
+    if (!captures.length) { report('No diagnostics for saved manga yet.'); return; }
+    const file = new Blob([JSON.stringify({ version:1, captures }, null, 2)], { type:'application/json' });
+    const url = URL.createObjectURL(file);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'storycursor-diagnostics.json';
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    report('Exported ' + captures.length + ' capture(s).');
+  }, diagnostics);
+  action('Clear diagnostics', async () => {
+    if (!window.confirm('Clear local debug captures?')) return;
+    await clearDebugCaptures();
+    report('Local debug captures cleared.');
+  }, diagnostics);
+}

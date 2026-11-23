@@ -7,7 +7,7 @@ import { anchor, describe, fields, literal } from '../packages/sheets-adapter/sc
 
 test('MV3 action detects the active tab and retries an uncertain save with the same ID', async ({ browserName }, info) => {
   test.skip(browserName !== 'chromium');
-  const extensionPath = resolve('dist/extension');
+  const extensionPath = resolve(info.project.name === 'release' ? 'dist/release/extension' : 'dist/extension');
   const profile = info.outputPath('profile');
   const context = await chromium.launchPersistentContext(profile, {
     channel: 'chromium', headless: true,

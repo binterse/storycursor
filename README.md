@@ -7,7 +7,7 @@ StoryCursor is a Manifest V3 browser extension for saving manga progress to Goog
 ## Install
 
 1. Download the extension ZIP from the build artifacts, or run the build below. Extract the ZIP.
-2. In desktop Chrome, open `chrome://extensions`, enable **Developer mode**, and select **Load unpacked**. Choose the extracted folder containing `manifest.json`. For a local build, choose `dist/extension`.
+2. In desktop Chrome, open `chrome://extensions`, enable **Developer mode**, and select **Load unpacked**. Choose the extracted release folder containing `manifest.json`. For the local debug build, choose `dist/extension`.
 3. Follow the [test workbook and Google authorization setup](docs/setup.md). In the extension popup, select **Connect Google Drive**. The settings page accepts the test deployment URL and token. A managed deployment then suggests a Drive folder.
 4. Open a manga chapter. Check the detected title and chapter, then select **Save progress** for an existing series or **Add manga** for a new one. Open **Record actions** for manual entry, record selection and source tools. Once connected, use the settings icon to disconnect or manage Google access. A unique enrolled source is selected automatically. An uncertain match requires explicit record selection and confirmation.
 
@@ -36,9 +36,12 @@ pnpm build
 pnpm exec playwright install chromium
 pnpm e2e
 pnpm package
+pnpm e2e:release
 ```
 
-`pnpm dev` rebuilds TypeScript bundles on changes. Reload the unpacked extension after a rebuild. Run a fresh build for manifest or popup HTML/CSS changes. The build emits `dist/extension` and `dist/sheets-script`. The package command emits the installable ZIP in `dist`.
+- `pnpm build` builds **StoryCursor (Debug)** in `dist/extension`. Reload this folder during local development. `pnpm dev` watches TypeScript files.
+- `pnpm package` builds the release into `dist/release/extension` and puts the store ZIP in `dist/release`. Both modes also build their own Apps Script output beside the extension.
+- When a new manga is added from a page in a debug build, StoryCursor saves a bounded diagnostic snapshot in that browser profile. After a successful save, export it from **Settings → Debug diagnostics**. Review the file before sharing it in an issue or pull request. See [what debug captures contain](docs/privacy.md#debug-captures).
 
 The workspace separates the [domain and commands](packages/core), [site extraction](packages/site-adapters), [Sheets adapter and persistence engine](packages/sheets-adapter), [popup components](packages/ui), [browser integration](apps/extension), and [Apps Script service](apps/sheets-script).
 

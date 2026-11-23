@@ -1,3 +1,4 @@
+import { confirmDebugCapture } from './debug-storage';
 import { uuid } from '../../packages/core/commands';
 import { config, queueKey, remote, type QueueItem } from './sync';
 
@@ -19,6 +20,9 @@ async function submit(id: string): Promise<QueueItem> {
     };
   } catch {
     next = { ...submitted, state: 'Failed', message: 'Result unconfirmed. Retry this operation.', uncertain: true };
+  }
+  if (STORYCURSOR_DEBUG && item.command.type === 'CreateManga' && next.state === 'Confirmed saved') {
+    await confirmDebugCapture(id).catch(() => {});
   }
   await chrome.storage.local.set({ [key]: next });
   return next;
