@@ -1,8 +1,10 @@
+import { sourceKey } from '../core/domain';
+import { canonicalSeries } from '../site-adapters/extract';
 import { Conflict, prepare, uuid, validateCommand, type Command, type Fields, type Patch, type Result } from '../core/commands';
 import { anchor, columns, describe, fields, literal, revision, scalar, writable, type Cell, type Hash, type Row } from './schema';
 
 export type Audit = { command: Command; before: Patch; afterRevision: string; at: string };
-export type Change = { index: number; cell: Cell };
+export type Change = { index: number; cell: Cell; clearLink?: boolean };
 export type Transaction = { row?: Row; append?: boolean; changes: Change[]; audit: Audit; inbox?: string };
 export interface Workbook {
   rows(): Row[];
@@ -47,14 +49,33 @@ export function apply(book: Workbook, input: unknown): Result {
     const restore = referenced?.command.target === cmd.target && referenced.afterRevision === cmd.expected &&
       referenced.command.type !== 'CreateEntry' ? referenced.before : undefined;
     const patch = prepare(cmd, before, restore);
+    const newSources = [patch.primary, patch.secondary].flatMap(source => {
+      if (!source || source === before.primary || source === before.secondary) return [];
+      const key = canonicalSeries(source) ?? sourceKey(source);
+      return key ? [key] : [];
+    });
+    if (newSources.length && rows.some(candidate => {
+      if (candidate === row) return false;
+      const { primary, secondary } = fields(candidate);
+      return [primary, secondary].some(source => {
+        const key = canonicalSeries(source) ?? sourceKey(source);
+        return key !== undefined && newSources.includes(key);
+      });
+    })) throw new Conflict('This source is already linked to a different record.');
     const col = columns[row.sheet];
     const after: Row = { ...row, cells: [...row.cells] };
     const changes: Change[] = [];
-    function stage(index: number, cell: Cell) {
-      changes.push({ index, cell });
+    function stage(index: number, cell: Cell, clearLink = false) {
+      changes.push({ index, cell, ...(clearLink ? { clearLink } : {}) });
       const updated = { ...after.cells[index] };
       delete updated.hyperlink;
       delete updated.userEnteredValue;
+      if (clearLink && updated.userEnteredFormat) {
+        const format = { ...updated.userEnteredFormat };
+        delete format.textFormat;
+        if (Object.keys(format).length) updated.userEnteredFormat = format;
+        else delete updated.userEnteredFormat;
+      }
       after.cells[index] = { ...updated, ...cell };
     }
     for (const key of Object.keys(patch) as (keyof Fields)[]) {
@@ -63,7 +84,8 @@ export function apply(book: Workbook, input: unknown): Result {
       const old = scalar(row.cells[index]);
       if (old !== undefined) Object.assign(audit.before, { [key]: old });
       else Object.assign(audit.before, { [key]: null });
-      stage(index, literal(patch[key] ?? undefined));
+      const removeGeneratedLink = !!row.cells[index]?.userEnteredFormat?.textFormat?.link;
+      stage(index, literal(patch[key] ?? undefined), removeGeneratedLink);
     }
     if (creating || anchor(after, book.hash) !== anchor(row, book.hash)) {
       if (rows.some(candidate => candidate !== row && anchor(candidate, book.hash) === anchor(after, book.hash))) throw new Conflict('The resulting identity would be ambiguous.');

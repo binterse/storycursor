@@ -33,3 +33,5 @@ MangaDex chapter metadata is provided by [MangaDex](https://mangadex.org/). The 
 Chrome for Testing exercised the 0.2 options page, folder proposal, mock folder setup, legacy progress operations and profile-local disconnect. The managed Drive handler was tested against synthetic Drive and Sheets responses. Live managed-folder provisioning and FAB installation from the private store listing remain unverified.
 
 Desktop popup layout regression tests cover MangaKatana, MangaReader, MangaDex title pages and an unknown site using synthetic pages at the respective URL patterns. They check title truncation, chapter display, popup width and action visibility. The desktop save test also covers connected manual entry. These tests do not certify live site access or the FAB popup viewport.
+
+A live desktop staging test used synthetic MangaKatana and MangaReader chapter pages with the actual Google Sheets deployment. It saved on MangaKatana, linked MangaReader as a backup, reopened the same record by the new canonical source, and saved chapter 159. It also exposed differences in URL and auto-link handling on Apps Script, covered by regression tests.

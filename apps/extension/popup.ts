@@ -148,11 +148,25 @@ async function renderWorkspace(selectedId?: string) {
   changeRecord.className = 'text-button';
   selection.hidden = !!match?.verified || !!selectedId;
   changeRecord.hidden = !selection.hidden;
+  const series = observation?.series;
+  const seriesClaimed = series && entries.some(record =>
+    record.sources.some(url => canonicalSeries(url) === series || sourceKey(url) === series));
+  const linkSite = action('Link this site', async () => {
+    const entry = target();
+    if (!series || seriesClaimed || entry.sources[1]) return;
+    const name = aliases(entry.title)[0] || '(Untitled)';
+    const host = new URL(series).hostname;
+    if (window.confirm('Link ' + host + ' to ' + name + ' as a backup source?')) {
+      await submit(connection, 'LinkExistingEntry', entry, series, true);
+    }
+  }, workspace);
+  linkSite.className = 'text-button';
   let saving = false;
   function showCurrent() {
     const entry = byValue.get(dropdown.value);
     const missingProgress = !progress.value.trim();
     save.disabled = saving || entry?.sheet !== 'reading' || missingProgress;
+    linkSite.hidden = !series || !!seriesClaimed || !entry || !!entry.sources[1];
     if (!entry) {
       current.textContent = ordered.some(record => record.id && record.sheet === 'reading')
         ? 'Choose the matching reading record below.'
@@ -216,7 +230,7 @@ async function renderWorkspace(selectedId?: string) {
   action('Add alias', async () => submit(connection, 'AppendAlias', target(), value.value), more);
   action('Set primary source', async () => submit(connection, 'SetPrimarySource', target(), value.value || stable || ''), more);
   action('Add backup source', async () => submit(connection, 'AddSource', target(), value.value || stable || ''), more);
-  action('Link new website', async () => submit(connection, 'LinkExistingEntry', target(), value.value || stable || ''), more);
+  action('Link another website', async () => submit(connection, 'LinkExistingEntry', target(), value.value || stable || ''), more);
   for (const slot of ['primary', 'secondary']) action('Remove ' + slot, async () => {
     if (window.confirm('Remove the ' + slot + ' source?')) await submit(connection, 'RemoveSource', target(), slot, true);
   }, more);

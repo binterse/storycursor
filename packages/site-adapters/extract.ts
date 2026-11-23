@@ -1,6 +1,6 @@
 import { sourceKey, type Observation } from '../core/domain';
 
-type Extractor = (url: URL) => Pick<Observation, 'series' | 'progress'> | undefined;
+type Extractor = (url: { origin: string; pathname: string }) => Pick<Observation, 'series' | 'progress'> | undefined;
 
 const mangaDex: Extractor = url => {
   if (url.origin !== 'https://mangadex.org') return;
@@ -24,8 +24,9 @@ export function extract(page: { url: string; title: string }): Observation {
   const base = { url: page.url.length <= 2000 ? page.url : '', title: page.title.slice(0, 400).trim() };
   const normalized = sourceKey(base.url);
   if (!normalized) return base;
-  const url = new URL(normalized);
-  if (url.search) return base;
+  const match = /^(https:\/\/[^/?#]+)(\/[^?#]*)(\?[^#]*)?/.exec(normalized);
+  if (!match?.[1] || !match[2] || match[3]) return base;
+  const url = { origin: match[1], pathname: match[2] };
   for (const adapter of [mangaDex, mangaKatana, mangaReader]) {
     const detected = adapter(url);
     if (detected) return { ...base, ...detected };

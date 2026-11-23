@@ -19,10 +19,33 @@ export function parseProgress(original: Scalar): Progress {
 
 export function sourceKey(input: string): string | undefined {
   if (!/^https?:\/\//i.test(input) || /[\s\\\u0000-\u001f]/.test(input)) return;
-  try {
-    const parsed = new URL(input);
-    if (!parsed.username && !parsed.password) return parsed.href;
-  } catch { return; }
+  if (typeof URL === 'function') {
+    try {
+      const parsed = new URL(input);
+      if (!parsed.username && !parsed.password) return parsed.href;
+    } catch { return; }
+    return;
+  }
+
+  // Apps Script has no WHATWG URL. Accept ordinary ASCII web URLs there and
+  // reject ambiguous authorities or paths instead of guessing a canonical URL.
+  const parts = /^(https?):\/\/([a-z0-9.-]+)(?::([0-9]{1,5}))?([/?#][\x21-\x7e]*)?$/i.exec(input);
+  if (!parts) return;
+  const [, rawProtocol, rawHost, rawPort, suffix = ''] = parts;
+  if (!rawProtocol || !rawHost || /["<>^`{}|]/.test(suffix)) return;
+  const host = rawHost.toLowerCase();
+  const labels = host.replace(/\.$/, '').split('.');
+  if (host.length > 254 || labels.some(label => !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label))) return;
+  const lastLabel = labels[labels.length - 1]!;
+  if (/^(?:\d+|0x[0-9a-f]*)$/.test(lastLabel) &&
+      (labels.length !== 4 || labels.some(label => !/^(?:0|[1-9]\d{0,2})$/.test(label) || Number(label) > 255))) return;
+  const path = suffix.split(/[?#]/, 1)[0]!;
+  if (path.split('/').some(segment => /^(?:\.|%2e){1,2}$/i.test(segment))) return;
+  const protocol = rawProtocol.toLowerCase();
+  const port = rawPort === undefined ? undefined : Number(rawPort);
+  if (port !== undefined && port > 65535) return;
+  const authority = host + (port === undefined || port === (protocol === 'https' ? 443 : 80) ? '' : ':' + port);
+  return protocol + '://' + authority + (suffix.startsWith('/') ? '' : '/') + suffix;
 }
 
 export type Entry = {

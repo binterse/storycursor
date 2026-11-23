@@ -3,7 +3,7 @@ import { chromium, expect, test } from '@playwright/test';
 import { resolve } from 'node:path';
 import { fixture, series, hash, MockBook } from './fixtures';
 import { apply } from '../packages/sheets-adapter/engine';
-import { describe } from '../packages/sheets-adapter/schema';
+import { anchor, describe, fields, literal } from '../packages/sheets-adapter/schema';
 
 test('MV3 action detects the active tab and retries an uncertain save with the same ID', async ({ browserName }, info) => {
   test.skip(browserName !== 'chromium');
@@ -19,7 +19,9 @@ test('MV3 action detects the active tab and retries an uncertain save with the s
     const id = new URL(worker.url()).hostname;
     const page = context.pages()[0] ?? await context.newPage();
     const book = new MockBook();
-    const { row } = fixture();
+    const { row, id: entryId } = fixture();
+    row.cells[5] = {};
+    row.cells[6] = literal(entryId + ':' + anchor(row, hash));
     book.data.push(row);
     const token = 'a'.repeat(64);
     const endpoint = 'https://script.google.com/macros/s/fixture/exec';
@@ -100,6 +102,13 @@ test('MV3 action detects the active tab and retries an uncertain save with the s
     await popup.reload();
     await popup.getByText('Operation queue').click();
     await expect(popup.getByText('SetProgress · Confirmed saved')).toBeVisible();
+    await popup.getByLabel('Workbook record').selectOption('0');
+    await popup.getByText('Record actions', { exact:true }).click();
+    const secondSite = 'https://mangareader.to/orbit-library-42';
+    await popup.getByLabel('Title, alias or source URL').fill(secondSite);
+    await popup.getByRole('button', { name:'Link another website' }).click();
+    await expect.poll(() => fields(book.data[0]!).secondary).toBe(secondSite);
+    await expect(popup.getByRole('status')).toHaveText('Confirmed saved');
     options.once('dialog', dialog => dialog.accept());
     await options.getByRole('button', { name:'Disconnect', exact:true }).click();
     await expect(options.getByRole('heading', { name:'Connect Google Drive' })).toBeVisible();

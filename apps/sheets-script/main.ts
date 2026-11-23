@@ -92,7 +92,7 @@ function openWorkbook(id: string): Workbook {
         const { sheetId, index } = tx.row;
         for (const change of tx.changes) requests.push({ updateCells: {
           start: { sheetId, rowIndex: index, columnIndex: change.index },
-          rows: [{ values: [change.cell] }], fields: 'userEnteredValue',
+          rows: [{ values: [change.cell] }], fields: change.clearLink ? 'userEnteredValue,userEnteredFormat.textFormat.link' : 'userEnteredValue',
         } });
       }
       if (tx.inbox !== undefined) requests.push(append(sheetId('_sync_inbox'), [textCell(tx.audit.command.operationId), textCell(tx.inbox)]));
