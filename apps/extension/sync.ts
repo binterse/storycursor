@@ -2,14 +2,15 @@ import type { Command, Result, Storage } from '../../packages/core/commands';
 import type { Entry } from '../../packages/core/domain';
 
 export type FolderChoice = { id: string; name: string; label: string };
-export type Config = { endpoint: string; token: string; binding?: string };
+export type Config = { endpoint: string; token: string; binding?: string; expiresAt?: number };
 export function validConfig(config: Config) {
   return /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(config.endpoint) &&
     /^[0-9a-f]{64}$/i.test(config.token);
 }
 export async function config(): Promise<Config | undefined> {
   const { connection } = await chrome.storage.local.get('connection') as { connection?: Config };
-  return connection && validConfig(connection) && /^[0-9a-f]{64}$/.test(connection.binding ?? '') ? connection : undefined;
+  return connection && validConfig(connection) && (connection.expiresAt === undefined || connection.expiresAt > Date.now()) &&
+    /^[0-9a-f]{64}$/.test(connection.binding ?? '') ? connection : undefined;
 }
 export function remote(connection: Config): Storage & { check(): Promise<string>; folderSetup(): Promise<FolderChoice[] | undefined>; useFolder(folder: string, name: string): Promise<void> } {
   async function request(action: string, fields?: { command?: Command; folder?: string; name?: string }) {

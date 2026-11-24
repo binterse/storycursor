@@ -1,6 +1,7 @@
 declare const Drive: { Files: DriveFiles };
 import { folderChoices, managedWorkbook, type DriveFiles } from './folders';
 import { enrollment, type Choice } from './migration';
+import { beginGoogle, finishGoogle, googleCallback, googleConfig, isGoogleSession } from './google-auth';
 import { apply, type Audit, type Transaction, type Workbook } from '../../packages/sheets-adapter/engine';
 import { columns, describe, revision, scalar, type Cell, type Row, type Sheet } from '../../packages/sheets-adapter/schema';
 import { uuid } from '../../packages/core/commands';
@@ -129,7 +130,12 @@ export function handle(event: { postData?: { contents?: string } }) {
     if (!raw || raw.length > 12000) return json({ status: 'failed', message: 'Invalid request.' });
     request = JSON.parse(raw);
   } catch { return json({ status: 'failed', message: 'Invalid request.' }); }
-  if (!authorized(request?.token, props.getProperty('CLIENT_TOKEN'))) return json({ status: 'failed', message: 'Unauthorized.' });
+  const google = googleConfig(props);
+  if (request?.action === 'googleBegin') return json(beginGoogle(google, request.proofHash));
+  if (request?.action === 'googleFinish') return json(finishGoogle(google, request.state, request.proof, request.browserCode));
+  if (!authorized(request?.token, props.getProperty('CLIENT_TOKEN')) && !isGoogleSession(google, request?.token)) {
+    return json({ status: 'failed', message: 'Unauthorized.' });
+  }
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(5000)) return json({ status: 'retry', message: 'Service busy.' });
   try {
@@ -173,6 +179,9 @@ export function handle(event: { postData?: { contents?: string } }) {
   }
 }
 
+export function handleGet(event: { parameter?: { state?: string; code?: string } }) {
+  return json(googleCallback(googleConfig(PropertiesService.getScriptProperties()), event.parameter ?? {}));
+}
 
 function editorTask<T>(run: (id: string) => T): T {
   const props = PropertiesService.getScriptProperties();

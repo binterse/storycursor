@@ -41,3 +41,9 @@ Two token-authenticated actions are available before a workbook is bound:
 - `useFolder` takes `folder` and `name`. Use a returned folder ID or `new` with a name. Setup requires `MANAGED_DRIVE=yes`, no `SPREADSHEET_ID`, and disabled writes. The server binds the workbook after initializing and verifying its schema.
 
 If the setup response is lost, return to settings and reconnect to the same deployment. A bound workbook is reused. An unfinished setup can be retried by choosing the existing folder. The service refuses ambiguous matching workbooks.
+
+## Private deployment Google sign-in
+
+- `googleBegin` accepts a SHA-256 `proofHash` and returns a Google authorization URL and a short-lived `state`.
+- The deployment handles Google's GET callback. It checks the verified account and returns an additional short-lived `browserCode` in that browser tab. It does not return a Google access token or a sync credential.
+- `googleFinish` requires `state`, the original `proof` and the callback's `browserCode`. It returns the deployment-scoped session token accepted by the remaining sync actions. Changing the allowed account or rotating the service secret invalidates existing sessions.

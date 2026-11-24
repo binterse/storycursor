@@ -8,6 +8,8 @@ Network requests go to the configured Apps Script deployment and its response re
 
 The optional managed-folder setup uses the deployment's Google Drive file scope. It lists folders accessible to the app and creates its own workbook in the user-selected folder. Disconnecting in settings removes the connection from the current browser profile. To revoke the Google grant itself, use **Manage Google access** in settings.
 
+A configured private deployment can use Google sign-in. The service requests OpenID Connect email identity, verifies it against the account configured by the deployer and issues a StoryCursor session lasting up to 30 days. The Google access token and OAuth client secret stay server-side. Disconnecting removes the local session, and rotating the deployment's service token invalidates all issued sessions.
+
 ## Debug captures
 
 The local **StoryCursor (Debug)** build collects a small page snapshot when adding a manga from the active tab. It records the page title and selected title metadata, a few headings, the host and a redacted path shape, a canonical link summary, a few external script URLs reduced to host and path shape, and the number of structured data scripts. It removes query strings and fragments and redacts common credential patterns. It does not read cookies, browser storage, form values, full HTML, inline script contents, JavaScript responses, or network requests.

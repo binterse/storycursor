@@ -1,18 +1,36 @@
 import { clearDebugCaptures, readDebugCaptures } from './debug-storage';
+import { googleSignIn } from './google-sign-in';
 import { action, app, details, element, input, report } from '../../packages/ui/popup';
 import { config, remote, validConfig, type Config, type FolderChoice } from './sync';
 
 const content = element('section');
 
-async function connect(connection: Config) {
+async function connect(connection: Config, showDefault = false) {
   if (!validConfig(connection)) throw new Error('Enter the deployment URL and service token.');
   const service = remote(connection);
   const folderSetup = await service.folderSetup();
   if (folderSetup) {
+    if (showDefault && renderDefaultFolder(connection, folderSetup)) return;
     renderFolders(connection, folderSetup);
     return;
   }
   await finish(connection);
+}
+
+function renderDefaultFolder(connection: Config, choices: FolderChoice[]) {
+  const existing = choices.filter(choice => choice.id !== 'new' && choice.name === 'StoryCursor');
+  const suggested = existing.length === 1 ? existing[0] : existing.length === 0 ? choices.find(choice => choice.id === 'new') : undefined;
+  if (!suggested) return false;
+  report('');
+  content.replaceChildren();
+  element('h2', 'Save to Google Drive', content);
+  element('p', suggested.id === 'new' ? 'Create a StoryCursor folder in My Drive.' : 'Use your existing StoryCursor folder.', content);
+  action('Use StoryCursor folder', async () => {
+    await remote(connection).useFolder(suggested.id, suggested.name);
+    await finish(connection);
+  }, content).className = 'primary';
+  action('Choose another folder', async () => renderFolders(connection, choices, true), content);
+  return true;
 }
 
 async function finish(connection: Config) {
@@ -22,7 +40,7 @@ async function finish(connection: Config) {
   await render();
 }
 
-function renderFolders(connection: Config, choices: FolderChoice[]) {
+function renderFolders(connection: Config, choices: FolderChoice[], backToDefault = false) {
   report('');
   content.replaceChildren();
   element('h2', 'Choose a Google Drive folder', content);
@@ -45,7 +63,9 @@ function renderFolders(connection: Config, choices: FolderChoice[]) {
     await remote(connection).useFolder(item.id, item.id === 'new' ? newName.value.trim() : item.name);
     await finish(connection);
   }, content).className = 'primary';
-  action('Back', render, content);
+  action('Back', async () => {
+    if (!backToDefault || !renderDefaultFolder(connection, choices)) await render();
+  }, content);
 }
 
 async function render() {
@@ -66,15 +86,23 @@ async function render() {
     return;
   }
   element('h2', 'Connect Google Drive', content);
-  const endpoint = input('Deployment URL', content, '', 'url');
-  const token = input('Service token', content, '', 'password');
+  let setup: HTMLElement = content;
+  if (STORYCURSOR_GOOGLE_ENDPOINT) {
+    action('Sign in with Google', async () => {
+      report('Complete sign-in in the Google tab.');
+      await connect(await googleSignIn(STORYCURSOR_GOOGLE_ENDPOINT), true);
+    }, content).className = 'primary';
+    setup = details('Advanced setup', content);
+  }
+  const endpoint = input('Deployment URL', setup, '', 'url');
+  const token = input('Service token', setup, '', 'password');
   token.autocomplete = 'off';
   action('Continue', async () => {
     report('Checking connection…');
     try { await connect({ endpoint: endpoint.value.trim(), token: token.value.trim() }); }
     finally { token.value = ''; }
-  }, content).className = 'primary';
-  const help = details('About the test connection', content);
+  }, setup).className = 'primary';
+  const help = details('About the test connection', setup);
   element('p', 'The private test uses a StoryCursor sync deployment. A Drive-enabled deployment can suggest an existing StoryCursor folder or create one for you.', help);
 }
 app.querySelector('h1')!.textContent = 'StoryCursor settings';

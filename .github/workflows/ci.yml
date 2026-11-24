@@ -20,6 +20,7 @@ jobs:
       - run: pnpm test
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm system:test
+      - run: node scripts/system-test.mjs --google
       - run: pnpm package
       - uses: actions/upload-artifact@v4
         with:
