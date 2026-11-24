@@ -13,15 +13,17 @@ export async function popupCommand<T>(profile: string, targetId: string, method:
   const [port] = (await readFile(join(profile, 'DevToolsActivePort'), 'utf8')).split('\n');
   const socket = new WebSocket('ws://127.0.0.1:' + port?.trim() + '/devtools/page/' + targetId);
   return await new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => { socket.close(); reject(new Error('Popup inspection timed out')); }, 3000);
+    const timer = setTimeout(() => { socket.close(); reject(new Error(method + ' on the toolbar popup timed out')); }, 3000);
     socket.addEventListener('open', () => socket.send(JSON.stringify({ id: 1, method, params })), { once:true });
     socket.addEventListener('message', event => {
+      const message = JSON.parse(String(event.data));
+      if (message.id !== 1) return;
       clearTimeout(timer);
       socket.close();
-      const message = JSON.parse(String(event.data));
       if (message.result && !message.result.exceptionDetails) resolve(message.result);
-      else reject(new Error('Popup inspection failed'));
-    }, { once:true });
+      else reject(new Error(method + ' on the toolbar popup failed: ' +
+        (message.error?.message ?? message.result?.exceptionDetails?.text ?? 'Missing response')));
+    });
     socket.addEventListener('error', () => {
       clearTimeout(timer);
       reject(new Error('Cannot connect to the toolbar popup'));
