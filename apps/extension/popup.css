@@ -112,3 +112,27 @@ body.options h1 { font-size: 20px; }
 .record-tools { display: grid; gap: 8px; padding-top: 3px; }
 .record-tools > label { margin: 0; }
 .record-tools .record-tools { padding-top: 8px; border-top: 1px solid var(--line); }
+/* Use the toolbar mark at its native resolution on standard-density displays. */
+h1 { display: flex; align-items: center; gap: 9px; }
+h1::before {
+  content: "";
+  width: 24px;
+  height: 24px;
+  flex: none;
+  background: image-set(url("icon-24.png") 1x, url("icon-48.png") 2x) center / contain no-repeat;
+}
+.workspace { gap: 10px; padding: 16px; box-shadow: 0 2px 7px #193b2e0a; }
+.page-title { font-size: 18px; letter-spacing: -.025em; }
+.chapter-summary { color: var(--accent); font-size: 18px; }
+.chapter-summary.unavailable { font-size: 13px; font-weight: 500; color: var(--ink-muted); }
+.icon-button { width: 44px; border-color: transparent; background: transparent; }
+button, button.primary, input, select, summary, .quick-picker summary, .record-actions summary { min-height: 44px; }
+button.primary { border-radius: 10px; }
+summary { align-content: center; }
+.save-choices:empty, .save-choices:not(:has(button:not([hidden]))) { display: none; }
+[role="status"]:not(:empty) { background: #fff; border-inline-start: 3px solid var(--ink-muted); }
+@media (pointer: coarse) {
+  main { gap: 8px; }
+  input, select { font-size: 16px; }
+  .source-credit, .options a { display: inline-flex; align-items: center; min-height: 44px; }
+}

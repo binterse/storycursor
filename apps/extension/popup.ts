@@ -80,6 +80,7 @@ async function renderWorkspace(selectedId?: string) {
   const chapter = element('p', '', workspace);
   chapter.className = 'chapter-summary';
   const showChapter = (value?: string) => {
+    chapter.classList.toggle('unavailable', !value);
     chapter.textContent = value ? (parseProgress(value).kind === 'ordinal' ? 'Chapter ' + value : value) : 'Chapter unavailable';
   };
   showChapter(observation?.progress);

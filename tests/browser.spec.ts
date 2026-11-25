@@ -99,6 +99,19 @@ test('MV3 action detects the active tab and retries an uncertain save with the s
     await popupSession.send('Emulation.setTouchEmulationEnabled', { enabled:true });
     await expect.poll(() => popup.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await expect(popup.getByRole('button', { name:'Update to chapter 157.5' })).toBeInViewport();
+    for (const width of [300, 360, 412]) {
+      await popup.setViewportSize({ width, height: 580 });
+      const targets = popup.locator('button:visible, summary:visible');
+      for (const control of await targets.all()) {
+        const bounds = await control.boundingBox();
+        expect(bounds?.height).toBeGreaterThanOrEqual(44);
+        expect(bounds?.width).toBeGreaterThanOrEqual(44);
+      }
+      await expect(popup.getByRole('button', { name:'Update to chapter 157.5' })).toBeInViewport();
+      expect(await popup.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    await popup.setViewportSize({ width: 320, height: 580 });
+    await popup.locator('main').screenshot({ path:info.outputPath('mobile-popup.png') });
     await popupSession.send('Emulation.setTouchEmulationEnabled', { enabled:false });
     await popup.setViewportSize({ width:420, height:650 });
     await popup.locator('main').screenshot({ path:info.outputPath('connected-popup.png') });

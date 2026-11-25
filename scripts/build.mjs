@@ -9,8 +9,8 @@ if (googleEndpoint && !/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]
 const root = system ? ('dist/system/' + (debug ? 'debug' : 'release')) : (debug ? 'dist' : 'dist/release');
 const outdir = root + '/extension';
 await mkdir(outdir, { recursive: true });
-await Promise.all(['popup.html','options.html','popup.css','icon-128.png'].map(file => copyFile('apps/extension/' + file, outdir + '/' + file)));
 const manifest = JSON.parse(await readFile('apps/extension/manifest.json', 'utf8'));
+await Promise.all(['popup.html','options.html','popup.css',...Object.values(manifest.icons)].map(file => copyFile('apps/extension/' + file, outdir + '/' + file)));
 if (debug) manifest.name += ' (Debug)';
 await writeFile(outdir + '/manifest.json', JSON.stringify(manifest));
 const options = { entryPoints: ['apps/extension/popup.ts','apps/extension/options.ts','apps/extension/worker.ts'], bundle: true, format: 'esm', outdir, target: 'chrome120', define: { STORYCURSOR_DEBUG: String(debug), STORYCURSOR_GOOGLE_ENDPOINT: JSON.stringify(googleEndpoint) }, minifySyntax: !debug };

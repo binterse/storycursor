@@ -4,7 +4,7 @@ const directory = 'dist/release/extension';
 const manifest = JSON.parse(readFileSync(directory + '/manifest.json', 'utf8'));
 if (manifest.name !== 'StoryCursor') throw new Error('Expected the release extension.');
 const zip = new AdmZip();
-for (const asset of ['icon-128.png','manifest.json','options.html','options.js','popup.css','popup.html','popup.js','worker.js']) {
+for (const asset of [...Object.values(manifest.icons),'manifest.json','options.html','options.js','popup.css','popup.html','popup.js','worker.js']) {
   zip.addLocalFile(directory + '/' + asset);
 }
 const debugMarkers = ['storycursor-local-debug', 'Download diagnostics', 'Clear diagnostics', 'jsonLdCount', 'readDebugPage'];
