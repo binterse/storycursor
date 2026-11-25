@@ -80,6 +80,16 @@ for (const fixture of fixtures) {
       }).toBe(true);
       expect(result).toMatchObject({ fullTitle: fixture.visibleTitle ?? fixture.title, progress: fixture.progress, overflow: false });
       expect(result!.lines).toBeLessThanOrEqual(2.01);
+      const clipped = await inspectPopup<boolean>(profile, targetId!, "document.querySelector('.page-title').scrollHeight > document.querySelector('.page-title').clientHeight + 1");
+      expect(clipped).toBe((fixture.visibleTitle ?? fixture.title).length > 80);
+      expect(await inspectPopup<boolean>(profile, targetId!, "!document.querySelector('.title-toggle').hidden")).toBe(clipped);
+      if (clipped) {
+        const toggle = "document.querySelector('.title-toggle').click()";
+        await inspectPopup(profile, targetId!, toggle);
+        expect(await inspectPopup<boolean>(profile, targetId!, "document.querySelector('.page-title').scrollHeight <= document.querySelector('.page-title').clientHeight + 1")).toBe(true);
+        await inspectPopup(profile, targetId!, toggle);
+        expect(await inspectPopup<string>(profile, targetId!, "document.querySelector('.title-toggle').getAttribute('aria-expanded')")).toBe('false');
+      }
       const screenshot = await popupCommand<{ data: string }>(profile, targetId!, 'Page.captureScreenshot', { format: 'png' });
       await writeFile(info.outputPath('popup.png'), Buffer.from(screenshot.data, 'base64'));
     } finally {

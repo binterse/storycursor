@@ -67,7 +67,9 @@ async function submit(connection: Config, type: CommandName, entry: Entry | unde
   if (result.state === 'Confirmed saved') await renderWorkspace(creating ? command.target : undefined);
 }
 
+let titleObserver: ResizeObserver | undefined;
 async function renderWorkspace(selectedId?: string) {
+  titleObserver?.disconnect();
   workspace.replaceChildren();
   app.querySelector('.source-credit')?.remove();
   const page = await activePage().catch(() => undefined);
@@ -77,6 +79,23 @@ async function renderWorkspace(selectedId?: string) {
   const title = element('h2', pageTitle || 'Reading progress', workspace);
   title.className = 'page-title';
   title.title = title.textContent ?? '';
+  title.id = 'series-title';
+  const expand = element('button', 'Show full title', workspace);
+  expand.className = 'title-toggle';
+  expand.setAttribute('aria-controls', title.id);
+  expand.setAttribute('aria-expanded', 'false');
+  const measureTitle = () => {
+    expand.hidden = !title.classList.contains('expanded') && title.scrollHeight <= title.clientHeight + 1;
+  };
+  expand.addEventListener('click', () => {
+    const expanded = title.classList.toggle('expanded');
+    expand.setAttribute('aria-expanded', String(expanded));
+    expand.textContent = expanded ? 'Show less' : 'Show full title';
+    measureTitle();
+  });
+  titleObserver = new ResizeObserver(measureTitle);
+  titleObserver.observe(title);
+  measureTitle();
   const chapter = element('p', '', workspace);
   chapter.className = 'chapter-summary';
   const showChapter = (value?: string) => {
@@ -321,6 +340,7 @@ async function renderWorkspace(selectedId?: string) {
     const displayTitle = entry ? aliases(entry.title)[0] || '(Untitled)' : selectedTitle() || 'Reading progress';
     title.textContent = displayTitle;
     title.title = displayTitle;
+    measureTitle();
     newTitle.parentElement!.hidden = !!entry;
     const eligible = entry?.sheet === 'reading';
     const quick = !quickPicker.hidden;
