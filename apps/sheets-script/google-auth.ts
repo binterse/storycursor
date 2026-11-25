@@ -1,3 +1,8 @@
+import { signInErrors } from '../../packages/core/sign-in';
+type Failure = keyof typeof signInErrors;
+class ProviderError extends Error {
+  constructor(readonly reason: Failure) { super(signInErrors[reason]); }
+}
 type Properties = { getProperty(key: string): string | null };
 type Cache = { get(key: string): string | null; put(key: string, value: string, seconds: number): void };
 type GoogleConfig = { client: string; secret: string; endpoint: string; email: string; subject?: string; signingKey: string };
@@ -95,7 +100,11 @@ export function finishGoogle(config: GoogleConfig | undefined, state: unknown, p
 
 function googleJson(url: string, options: object) {
   const response = UrlFetchApp.fetch(url, { ...options, followRedirects: false, muteHttpExceptions: true });
-  if (response.getResponseCode() !== 200) throw new Error('Google sign-in rejected.');
+  if (response.getResponseCode() !== 200) {
+    const { error } = JSON.parse(response.getContentText());
+    if (error === 'invalid_client' || error === 'redirect_uri_mismatch') throw new ProviderError('service-client');
+    throw new ProviderError(error === 'invalid_grant' ? 'exchange' : 'service');
+  }
   return JSON.parse(response.getContentText());
 }
 
@@ -114,20 +123,35 @@ function verifiedAccount(config: GoogleConfig, code: string) {
   return domain === 'gmail.com' || (typeof account.hd === 'string' && account.hd.toLowerCase() === domain);
 }
 
-export function googleCallback(config: GoogleConfig | undefined, { state, code }: { state?: string; code?: string }) {
-  const denied = { status: 'failed', state, message: 'This Google account could not connect to StoryCursor.' };
+// Run from the script editor to authorize outbound requests and check the
+// deployment. A deliberately invalid code cannot produce a Google credential.
+export function checkGoogleDeployment(properties: Properties) {
+  const config = googleConfig(properties);
+  if (!config) throw new Error('Configure Google sign-in in Script Properties.');
+  try {
+    verifiedAccount(config, 'storycursor-deployment-check');
+  } catch (error) {
+    if (error instanceof ProviderError && error.reason === 'exchange') return 'Google token endpoint reached.';
+    throw error;
+  }
+  throw new Error('Unexpected Google deployment check result.');
+}
+
+export function googleCallback(config: GoogleConfig | undefined, { state, code, error }: { state?: string; code?: string; error?: string }) {
+  const denied = (reason: Failure) => ({ status: 'failed', state, reason, message: signInErrors[reason] });
   if (!config || !isState(state)) return { status: 'failed', message: 'StoryCursor sign-in unavailable.' };
   const lock = LockService.getScriptLock();
-  if (!lock.tryLock(5000)) return denied;
+  if (!lock.tryLock(5000)) return denied('busy');
   const cache = CacheService.getScriptCache();
   let attempt: Attempt | undefined;
   try {
     attempt = read(config, cache, state);
-    if (!attempt || attempt.phase !== 'waiting') return denied;
+    if (!attempt || attempt.phase !== 'waiting') return denied('expired');
     save(config, cache, state, { ...attempt, phase: 'processing' });
   } finally {
     lock.releaseLock();
   }
+  let reason: Failure = error === 'access_denied' ? 'cancelled' : code ? 'account' : 'exchange';
   try {
     if (code && code.length <= 2048 && verifiedAccount(config, code) && attempt.until > seconds()) {
       const browserCode = Utilities.getUuid().replace(/-/g, '').toLowerCase();
@@ -135,7 +159,10 @@ export function googleCallback(config: GoogleConfig | undefined, { state, code }
       // Only the browser that follows Google's redirect receives this second proof.
       return { status: 'ready', state, browserCode, message: 'Return to StoryCursor settings.' };
     }
-  } catch { /* Deny unverified accounts. */ }
+  } catch (cause) {
+    reason = cause instanceof ProviderError ? cause.reason :
+      /permission to call UrlFetchApp|auth\/script\.external_request/i.test(String(cause)) ? 'service-permission' : 'service';
+  }
   save(config, cache, state, { ...attempt, phase: 'denied' });
-  return denied;
+  return denied(reason);
 }

@@ -96,6 +96,21 @@ it('expires the login attempt and rejects credentials after changing the allowed
   expect(callback(expiring.state)).not.toHaveProperty('browserCode');
 });
 
+it.each([
+  ['invalid_client', 'service-client'],
+  ['invalid_grant', 'exchange'],
+  ['permission', 'service-permission'],
+])('identifies %s without returning credentials or accepting the callback', (problem, reason) => {
+  vi.stubGlobal('UrlFetchApp', { fetch: () => {
+    if (problem === 'permission') throw new Error('You do not have permission to call UrlFetchApp.fetch. Required permissions: https://www.googleapis.com/auth/script.external_request');
+    return { getResponseCode: () => 400, getContentText: () => JSON.stringify({ error: problem, error_description: 'private details' }) };
+  } });
+  const reply = callback(begin().state);
+  expect(reply).toMatchObject({ status: 'failed', reason });
+  expect(reply).not.toHaveProperty('browserCode');
+  expect(JSON.stringify(reply)).not.toContain('private details');
+});
+
 it('requires a pinned Google subject for an account with an external email', () => {
   googleAccount = { sub: 'synthetic-account', email: 'owner@example.test', email_verified: true };
   properties.GOOGLE_OAUTH_ALLOWED_EMAIL = googleAccount.email;

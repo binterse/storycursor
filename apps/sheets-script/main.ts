@@ -1,7 +1,7 @@
 declare const Drive: { Files: DriveFiles };
 import { folderChoices, managedWorkbook, type DriveFiles } from './folders';
 import { enrollment, type Choice } from './migration';
-import { beginGoogle, finishGoogle, googleCallback, googleConfig, isGoogleSession } from './google-auth';
+import { beginGoogle, checkGoogleDeployment, finishGoogle, googleCallback, googleConfig, isGoogleSession } from './google-auth';
 import { apply, type Audit, type Transaction, type Workbook } from '../../packages/sheets-adapter/engine';
 import { columns, describe, revision, scalar, type Cell, type Row, type Sheet } from '../../packages/sheets-adapter/schema';
 import { uuid } from '../../packages/core/commands';
@@ -179,7 +179,10 @@ export function handle(event: { postData?: { contents?: string } }) {
   }
 }
 
-export function handleGet(event: { parameter?: { state?: string; code?: string } }) {
+export function checkSignIn() {
+  return checkGoogleDeployment(PropertiesService.getScriptProperties());
+}
+export function handleGet(event: { parameter?: { state?: string; code?: string; error?: string } }) {
   return json(googleCallback(googleConfig(PropertiesService.getScriptProperties()), event.parameter ?? {}));
 }
 
