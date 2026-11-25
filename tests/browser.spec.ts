@@ -68,6 +68,9 @@ test('MV3 action detects the active tab and retries an uncertain save with the s
     const opened = context.waitForEvent('page');
     await popup.getByRole('button', { name:'Connect Google Drive' }).click();
     const options = await opened;
+    const advanced = options.getByText('Advanced setup', { exact: true });
+    await expect(options.getByRole('heading', { name:'Connect Google Drive' })).toBeVisible();
+    if (await advanced.isVisible()) await advanced.click();
     await options.getByLabel('Deployment URL').fill(endpoint);
     await options.getByLabel('Service token').fill('b'.repeat(64));
     await options.getByRole('button', { name:'Continue' }).click();
@@ -148,6 +151,11 @@ test('MV3 action detects the active tab and retries an uncertain save with the s
     options.once('dialog', dialog => dialog.accept());
     await options.getByRole('button', { name:'Disconnect', exact:true }).click();
     await expect(options.getByRole('heading', { name:'Connect Google Drive' })).toBeVisible();
+    await options.reload();
+    await expect(options.getByRole('heading', { name:'Connect Google Drive' })).toBeVisible();
+    if (await advanced.isVisible()) await advanced.click();
+    await expect(options.getByLabel('Deployment URL')).toHaveValue(endpoint);
+    await expect(options.getByLabel('Service token')).toHaveValue('');
     await popup.reload();
     await expect(popup.getByRole('button', { name:'Connect Google Drive' })).toBeVisible();
   } finally {

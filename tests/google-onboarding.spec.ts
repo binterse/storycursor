@@ -71,6 +71,11 @@ for (const useDefault of [true, false]) {
       await expect(page.getByText('Google Sheets connected')).toBeVisible();
       expect(selectedFolders).toEqual([useDefault ? 'new' : 'other-folder-id']);
       await expect(page.getByLabel('Service token')).toHaveCount(0);
+      page.once('dialog', dialog => dialog.accept());
+      await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
+      await page.reload();
+      await expect(page.getByRole('button', { name: 'Sign in with Google' })).toBeVisible();
+      expect(await worker.evaluate(async () => (await chrome.storage.local.get('connection')).connection)).toBeUndefined();
     } finally {
       await browser.close();
     }

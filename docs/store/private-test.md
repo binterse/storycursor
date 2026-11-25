@@ -4,7 +4,7 @@ Use the same Manifest V3 package for desktop and FAB. The private listing is for
 
 ## Upload material
 
-- Release ZIP from `pnpm package` at `dist/release/storycursor-0.3.7.zip`. The local debug folder is `dist/extension`.
+- Release ZIP from `pnpm package` at `dist/release/storycursor-0.3.8.zip`. The local debug folder is `dist/extension`.
 - Screenshot at [1280 × 800](screenshot-1280x800.png)
 - Small promotional tile at [440 × 280](promo-440x280.png)
 - The ZIP includes the 128 px icon.

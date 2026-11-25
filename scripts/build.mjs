@@ -1,7 +1,9 @@
 import { build, context } from 'esbuild';
 import { mkdir, copyFile, readFile, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 const debug = !process.argv.includes('--release');
 const system = process.argv.includes('--system');
+if (!system && existsSync('.env.storycursor')) process.loadEnvFile('.env.storycursor');
 const googleEndpoint = process.env.STORYCURSOR_GOOGLE_ENDPOINT?.trim() ?? '';
 if (googleEndpoint && !/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(googleEndpoint)) {
   throw new Error('STORYCURSOR_GOOGLE_ENDPOINT must be an Apps Script /exec URL.');

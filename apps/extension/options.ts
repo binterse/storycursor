@@ -35,7 +35,7 @@ function renderDefaultFolder(connection: Config, choices: FolderChoice[]) {
 
 async function finish(connection: Config) {
   connection.binding = await remote(connection).check();
-  await chrome.storage.local.set({ connection });
+  await chrome.storage.local.set({ connection, lastEndpoint: connection.endpoint });
   report('Connected. You can return to your reading tab.');
   await render();
 }
@@ -75,6 +75,7 @@ async function render() {
     element('p', 'Google Sheets connected', content);
     action('Disconnect', async () => {
       if (!window.confirm('Disconnect on this device? Your files and queued operations will stay.')) return;
+      await chrome.storage.local.set({ lastEndpoint: connection.endpoint });
       await chrome.storage.local.remove('connection');
       report('Disconnected on this device.');
       await render();
@@ -94,7 +95,8 @@ async function render() {
     }, content).className = 'primary';
     setup = details('Advanced setup', content);
   }
-  const endpoint = input('Deployment URL', setup, '', 'url');
+  const { lastEndpoint } = await chrome.storage.local.get('lastEndpoint');
+  const endpoint = input('Deployment URL', setup, typeof lastEndpoint === 'string' ? lastEndpoint : STORYCURSOR_GOOGLE_ENDPOINT, 'url');
   const token = input('Service token', setup, '', 'password');
   token.autocomplete = 'off';
   action('Continue', async () => {
