@@ -128,7 +128,10 @@ const system = test.extend<{ reader: {
       const label = () => run<string>("document.querySelector('.workspace button.primary')?.innerText");
       const click = () => run("document.querySelector('.workspace button.primary').click(); true");
       await expect.poll(label,{ timeout:9000 }).toMatch(/^(?:Add manga|Update .+|Remember this series|Chapter saved|Try again)$/);
-      if (await label() === 'Try again') await click();
+      if (await label() === 'Try again') {
+        await click();
+        await expect.poll(label, { timeout:9000 }).toMatch(/^(?:Add manga|Update .+|Remember this series|Chapter saved)$/);
+      }
       await expect.poll(() => run("document.querySelector('.chapter-summary')?.textContent")).toBe('Chapter ' + chapter);
       async function screenshot(file: string) {
         const shot = await popupCommand<{ data: string }>(profile,target,'Page.captureScreenshot',{ format:'png' });

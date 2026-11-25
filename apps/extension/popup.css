@@ -136,3 +136,5 @@ summary { align-content: center; }
   input, select { font-size: 16px; }
   .source-credit, .options a { display: inline-flex; align-items: center; min-height: 44px; }
 }
+.page-title.expanded { display: block; max-height: none; }
+.title-toggle { justify-self: start; background: transparent; border-color: transparent; text-decoration: underline; }
