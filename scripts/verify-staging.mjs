@@ -8,7 +8,9 @@ if (!endpoint || !/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/ex
   throw new Error('Set STORYCURSOR_STAGING_ENDPOINT, STORYCURSOR_STAGING_TOKEN, and STORYCURSOR_STAGING_SPREADSHEET_ID.');
 }
 
-const binding = createHash('sha256').update('storycursor-v1:' + spreadsheet).digest('hex');
+const folder = process.env.STORYCURSOR_STAGING_FOLDER_ID;
+if (folder && !/^[A-Za-z0-9_-]{10,200}$/.test(folder)) throw new Error('Invalid staging folder ID.');
+const binding = createHash('sha256').update(folder ? 'storycursor-folder-v1:' + folder + ':' + spreadsheet : 'storycursor-v1:' + spreadsheet).digest('hex');
 async function request(payload) {
   for (let attempt = 0; attempt < 3; attempt++) {
     const response = await fetch(endpoint, {

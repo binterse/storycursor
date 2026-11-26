@@ -1,4 +1,15 @@
 export const defaultFolder = 'StoryCursor';
+type Destination = { folder: string; workbook: string; name: string };
+export function destinations(raw: string, hash: (s: string) => string) {
+  const rows: Destination[] = JSON.parse(raw);
+  const validId = (id: unknown) => typeof id === 'string' && /^[\w-]{10,200}$/.test(id);
+  if (!Array.isArray(rows) || !rows.length || rows.length > 100 ||
+      rows.some(r => !r || !validId(r.folder) || !validId(r.workbook) || typeof r.name !== 'string' || !r.name.trim()) ||
+      ['folder','workbook','name'].some(k => new Set(rows.map(r => r[k as keyof Destination])).size !== rows.length)) {
+    throw new Error('Invalid staging folder configuration.');
+  }
+  return rows.map(r => ({ ...r, binding: hash('storycursor-folder-v1:' + r.folder + ':' + r.workbook) }));
+}
 const folderMime = 'application/vnd.google-apps.folder';
 const sheetMime = 'application/vnd.google-apps.spreadsheet';
 const fields = 'nextPageToken,files(id,name,mimeType,appProperties,parents,trashed)';

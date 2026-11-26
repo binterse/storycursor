@@ -1,5 +1,5 @@
 declare const Drive: { Files: DriveFiles };
-import { folderChoices, managedWorkbook, type DriveFiles } from './folders';
+import { destinations, folderChoices, managedWorkbook, type DriveFiles } from './folders';
 import { enrollment, type Choice } from './migration';
 import { beginGoogle, checkGoogleDeployment, finishGoogle, googleCallback, googleConfig, isGoogleSession } from './google-auth';
 import { apply, type Audit, type Transaction, type Workbook } from '../../packages/sheets-adapter/engine';
@@ -13,7 +13,10 @@ type Grid = { properties: { sheetId: number; title: string }; data?: { rowData?:
 declare const Sheets: { Spreadsheets: {
   get(id: string, opts: object): { sheets?: Grid[] };
   batchUpdate(body: { requests: (Append | Update | Add)[] }, id: string): unknown;
-  Values: { get(id: string, range: string): { values?: string[][] } };
+  Values: {
+    get(id: string, range: string): { values?: string[][] };
+    batchGet(id: string, options: { ranges: string[] }): { valueRanges?: { values?: string[][] }[] };
+  };
 } };
 declare const PropertiesService: { getScriptProperties(): { getProperty(key: string): string | null; setProperty(key: string, value: string): void } };
 declare const LockService: { getScriptLock(): { tryLock(ms: number): boolean; releaseLock(): void } };
@@ -32,11 +35,11 @@ const headers = {
 const names = Object.keys(headers) as (keyof typeof headers)[];
 
 function checkHeaders(id: string, sheets: readonly (keyof typeof headers)[]) {
-  for (const name of sheets) {
-    const expected = headers[name];
-    const end = String.fromCharCode(64 + expected.length);
-    const values = Sheets.Spreadsheets.Values.get(id, "'" + name + "'!A1:" + end + "1").values?.[0];
-    if (!values || expected.some((value, index) => values[index] !== value)) throw new Error('Workbook schema or headers changed');
+  const ranges = sheets.map(name => "'" + name + "'!A1:" + String.fromCharCode(64 + headers[name].length) + '1');
+  const { valueRanges } = Sheets.Spreadsheets.Values.batchGet(id, { ranges });
+  for (const [index, name] of sheets.entries()) {
+    const row = valueRanges?.[index]?.values?.[0];
+    if (headers[name].some((value, col) => row?.[col] !== value)) throw new Error('Workbook schema or headers changed');
   }
 }
 function json(value: unknown) {
@@ -139,22 +142,36 @@ export function handle(event: { postData?: { contents?: string } }) {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(5000)) return json({ status: 'retry', message: 'Service busy.' });
   try {
-    const id = props.getProperty('SPREADSHEET_ID');
+    const configured = props.getProperty('FOLDER_DESTINATIONS');
+    const choices = configured == null ? undefined : destinations(configured, hash);
+    const choice = choices?.find(item => item.binding === (request.action === 'useFolder' ? request.folder : request.binding));
+    if (choices && request.action === 'folders') return json({ status: 'ready', folders: choices.map(item => ({
+      id: item.binding, name: item.name, label: item.name,
+    })) });
+    if (choices && !choice) return json({ status: 'conflict', message: 'Choose a folder before continuing.' });
+    if (choice && request.action === 'useFolder') {
+      openWorkbook(choice.workbook);
+      return json({ status: 'ready', binding: choice.binding });
+    }
     const managed = props.getProperty('MANAGED_DRIVE') === 'yes';
+    const fixed = props.getProperty('SPREADSHEET_ID');
+    const managedKey = managed && typeof request.binding === 'string' && /^[a-f0-9]{64}$/.test(request.binding)
+      ? props.getProperty('managed:' + request.binding) : null;
+    const id = choice?.workbook ?? managedKey ?? fixed;
     if (request.action === 'folders') {
-      return json({ status: 'ready', folders: managed && !id ? folderChoices(Drive.Files) : null });
+      return json({ status: 'ready', folders: managed && !fixed ? folderChoices(Drive.Files) : null });
     }
     if (request.action === 'useFolder') {
-      if (!managed || id) return json({ status: 'conflict', message: 'This deployment already has a workbook or folder setup is disabled.' });
-      if (props.getProperty('EXCLUSIVE_WRITER') === 'yes') return json({ status: 'failed', message: 'Disable sync writes before choosing a folder.' });
+      if (!managed || fixed) return json({ status: 'conflict', message: 'This deployment already has a workbook or folder setup is disabled.' });
       const managedId = managedWorkbook(Drive.Files, request.folder, request.name);
       prepareManagedSheet(managedId);
-      props.setProperty('SPREADSHEET_ID', managedId);
-      return json({ status: 'ready' });
+      const selected = hash('storycursor-v1:' + managedId);
+      props.setProperty('managed:' + selected, managedId);
+      return json({ status: 'ready', binding: selected });
     }
     if (!id) return json({ status: 'failed', message: 'Test workbook is not configured.' });
     const book = openWorkbook(id);
-    const binding = hash('storycursor-v1:' + id);
+    const binding = choice?.binding ?? hash('storycursor-v1:' + id);
     if (request.action === 'check') return json({ status: 'ready', binding });
     if (request.binding !== binding) return json({ status: 'failed', message: 'Workbook changed. Reconnect before continuing.' });
     if (request.action === 'list') {

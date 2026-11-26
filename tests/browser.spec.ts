@@ -36,7 +36,7 @@ test('MV3 action detects the active tab and retries an uncertain save with the s
       if (body.action === 'useFolder') {
         expect(body.folder).toBe('new');
         expect(body.name).toBe('StoryCursor');
-        return route.fulfill({ json: { status:'ready' } });
+        return route.fulfill({ json: { status:'ready', binding:hash('synthetic') } });
       }
       if (body.action === 'list') return route.fulfill({ json: { status:'ready', entries:book.rows().map(record => describe(record, hash)) } });
       if (body.action !== 'submit') return route.fulfill({ json: { status:'ready', binding:hash('synthetic') } });
