@@ -2,17 +2,21 @@ import type { Command, Result, Storage } from '../../packages/core/commands';
 import type { Entry } from '../../packages/core/domain';
 
 export type FolderChoice = { id: string; name: string; label: string };
-export type Config = { endpoint: string; token: string; binding?: string; expiresAt?: number };
+export type Config = { endpoint: string; token: string; binding?: string; expiresAt?: number; folderName?: string; folderId?: string };
 export function validConfig(config: Config) {
   return /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(config.endpoint) &&
     /^[0-9a-f]{64}$/i.test(config.token);
 }
-export async function config(): Promise<Config | undefined> {
+export async function config(includeUnconfirmedFolder = false): Promise<Config | undefined> {
   const { connection } = await chrome.storage.local.get('connection') as { connection?: Config };
-  return connection && validConfig(connection) && (connection.expiresAt === undefined || connection.expiresAt > Date.now()) &&
-    /^[0-9a-f]{64}$/.test(connection.binding ?? '') ? connection : undefined;
+  if (!connection || !validConfig(connection)) return;
+  if (connection.expiresAt !== undefined) {
+    if (!(connection.expiresAt > Date.now())) return;
+    if (!connection.folderName) return includeUnconfirmedFolder ? connection : undefined;
+  }
+  return /^[0-9a-f]{64}$/.test(connection.binding ?? '') ? connection : undefined;
 }
-export function remote(connection: Config): Storage & { check(): Promise<string>; folderSetup(): Promise<FolderChoice[] | undefined>; useFolder(folder: string, name: string): Promise<void> } {
+export function remote(connection: Config): Storage & { check(): Promise<string>; folderSetup(): Promise<FolderChoice[] | undefined>; useFolder(folder: string, name: string): Promise<string> } {
   async function request(action: string, fields?: { command?: Command; folder?: string; name?: string }) {
     if (!validConfig(connection)) throw new Error('Enter a valid deployment URL and token.');
     const response = await fetch(connection.endpoint, {
@@ -35,6 +39,8 @@ export function remote(connection: Config): Storage & { check(): Promise<string>
     async useFolder(folder, name) {
       const result = await request('useFolder', { folder, name });
       if (result.status !== 'ready') throw new Error(result.message ?? 'Could not set up the folder.');
+      if (typeof result.binding !== 'string' || !/^[a-f0-9]{64}$/.test(result.binding)) throw new Error('The service did not confirm the selected workbook.');
+      return result.binding;
     },
     async check() {
       const result = await request('check');

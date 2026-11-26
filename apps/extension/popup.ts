@@ -367,7 +367,9 @@ async function renderWorkspace(selectedId?: string) {
       const name = aliases(proposed.title)[0] || '(Untitled)';
       guidance.textContent = 'Suggested: ' + name + (proposed.progress === undefined || proposed.progress === '' ? '' : ' · Saved: ' + proposed.progress);
     } else {
-      guidance.textContent = !selectedTitle() && !canUpdate() ? 'Open a manga page or enter a title.' : '';
+      guidance.textContent = !selectedTitle() && !canUpdate()
+        ? page ? 'Open a manga page or enter a title.' : 'Let the chapter page load, then reopen StoryCursor on that tab.'
+        : '';
     }
     const link = Array.from(operation.options).find(option => option.value === 'link')!;
     link.disabled = !entry || !series || sourceClaimed || !!entry.sources[1];

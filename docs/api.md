@@ -4,7 +4,7 @@ Send JSON as the body of an HTTPS POST to the Apps Script deployment's `/exec` U
 
 | Action | Request fields in addition to token and action | Success response |
 | --- | --- | --- |
-| check | None | `{ status: "ready", binding }` |
+| check | Selected binding for a folder-backed workbook | `{ status: "ready", binding }` |
 | list | binding | `{ status: "ready", entries }` |
 | submit | binding, command | `{ status: "saved", operationId, target }` |
 
@@ -37,8 +37,8 @@ Shares, independent scripts, human edits and imports can bypass the lock. Sheets
 
 Two token-authenticated actions are available before a workbook is bound:
 
-- `folders` returns `{ status: "ready", folders }`. The field is null on a deployment with a bound workbook or with managed setup disabled.
-- `useFolder` takes `folder` and `name`. Use a returned folder ID or `new` with a name. Setup requires `MANAGED_DRIVE=yes`, no `SPREADSHEET_ID`, and disabled writes. The server binds the workbook after initializing and verifying its schema.
+- `folders` returns available choices as `{ status: "ready", folders: [{ id, name, label }] }`. A Sheets-only deployment lists its reviewed `FOLDER_DESTINATIONS` in configured order. Managed Drive lists accessible folders and a creation option. A fixed legacy deployment returns null and supports advanced token setup.
+- `useFolder` takes a returned `folder` ID and `name`. Only managed Drive accepts `new` with a name. After verifying the workbook, the server returns `{ status: "ready", binding }`. Clients send that binding on check, list and submit. Selecting another folder preserves bindings on other clients and pending operations.
 
 If the setup response is lost, return to settings and reconnect to the same deployment. A bound workbook is reused. An unfinished setup can be retried by choosing the existing folder. The service refuses ambiguous matching workbooks.
 

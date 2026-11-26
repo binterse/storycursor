@@ -41,7 +41,8 @@ beforeEach(() => {
     DigestAlgorithm: {}, Charset: {},
     computeDigest: (_: unknown, text: string) => [...createHash('sha256').update(text).digest()],
   });
-  vi.stubGlobal('Sheets', { Spreadsheets: { get, batchUpdate:batch, Values: { get: values } } });
+  const batchGet = (id: string, { ranges }: { ranges: string[] }) => ({ valueRanges: ranges.map(range => values(id, range)) });
+  vi.stubGlobal('Sheets', { Spreadsheets: { get, batchUpdate:batch, Values: { get: values, batchGet } } });
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -107,17 +108,16 @@ it('guards managed setup and binds only after verifying the new workbook schema'
   delete properties.SPREADSHEET_ID;
   expect(post({ action:'folders', token:'ff'.repeat(32) })).toMatchObject({ status:'failed' });
   expect(list).not.toHaveBeenCalled();
-  expect(post({ action:'useFolder', token, folder:'new', name:'StoryCursor' })).toMatchObject({ status:'failed' });
-  expect(create).not.toHaveBeenCalled();
 
   properties.EXCLUSIVE_WRITER = 'no';
   get.mockReturnValueOnce({ sheets: [{ properties: { title: 'Sheet1', sheetId: 0 } }] });
-  expect(post({ action:'useFolder', token, folder:'new', name:'StoryCursor' })).toEqual({ status:'ready' });
-  expect(properties.SPREADSHEET_ID).toBe(workbook);
+  const binding = hash('storycursor-v1:' + workbook);
+  expect(post({ action:'useFolder', token, folder:'new', name:'StoryCursor' })).toEqual({ status:'ready', binding });
+  expect(properties['managed:' + binding]).toBe(workbook);
   expect(batch).toHaveBeenCalledWith({ requests: expect.arrayContaining([
     { addSheet: { properties: { title: 'reading', sheetId: 1 } } },
   ]) }, workbook);
-  expect(post({ action:'folders', token })).toEqual({ status:'ready', folders:null });
+  expect(post({ action:'folders', token })).toHaveProperty('folders.0.id', 'new');
   expect(create).toHaveBeenCalledTimes(2);
 });
 
@@ -126,4 +126,20 @@ it('recognizes a chapterless CreateManga probe and rejects its non-absent revisi
     expected:'0'.repeat(64), value:'No-write deployment probe', confirmed:false, initial:{} };
   expect(post({ action:'submit', token, command:cmd })).toEqual({ status:'conflict', message:'Entry already exists.' });
   expect(batch).not.toHaveBeenCalled();
+});
+
+it('opens only the explicitly selected folder and rejects legacy or stale bindings', () => {
+  const other = 'second-workbook-id';
+  properties.FOLDER_DESTINATIONS = JSON.stringify([
+    { folder:'first-folder', workbook, name:'Reading' },
+    { folder:'other-folder', workbook:other, name:'Books' },
+  ]);
+  const folders = post({ action:'folders', token }) as { folders: { id: string }[] };
+  expect(get).not.toHaveBeenCalled();
+  expect(post({ action:'submit', token, command:command() })).toMatchObject({status:'conflict'});
+  expect(batch).not.toHaveBeenCalled();
+  const selection = folders.folders[1]!.id;
+  expect(post({ action:'useFolder', token, folder:selection })).toEqual({ status:'ready', binding:selection });
+  expect(post({ action:'check', token, binding:selection })).toEqual({ status:'ready', binding:selection });
+  expect(get).toHaveBeenLastCalledWith(other, expect.anything());
 });

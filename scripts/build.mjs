@@ -1,7 +1,9 @@
 import { build, context } from 'esbuild';
 import { mkdir, copyFile, readFile, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 const debug = !process.argv.includes('--release');
 const system = process.argv.includes('--system');
+if (!system && existsSync('.env.storycursor')) process.loadEnvFile('.env.storycursor');
 const googleEndpoint = process.env.STORYCURSOR_GOOGLE_ENDPOINT?.trim() ?? '';
 if (googleEndpoint && !/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(googleEndpoint)) {
   throw new Error('STORYCURSOR_GOOGLE_ENDPOINT must be an Apps Script /exec URL.');
@@ -17,8 +19,10 @@ const options = { entryPoints: ['apps/extension/popup.ts','apps/extension/option
 if (process.argv.includes('--watch')) await (await context(options)).watch();
 else await build(options);
 const service = { entryPoints: ['apps/sheets-script/main.ts'], bundle: true, format: 'iife', globalName: 'StoryCursorService', outfile: root + '/sheets-script/Code.gs', target: 'es2022',
+  supported: { 'class-field': false },
   footer: { js: `function doPost(e) { return StoryCursorService.handle(e); }
 function doGet(e) { return StoryCursorService.handleGet(e); }
+function checkStoryCursorSignIn() { console.log(StoryCursorService.checkSignIn()); }
 function initializeStoryCursor() { console.log(StoryCursorService.initialize()); }
 function previewStoryCursorEnrollment() { console.log(JSON.stringify(StoryCursorService.preview())); }
 function enrollStoryCursorRows() { console.log(StoryCursorService.enroll()); }` } };

@@ -21,10 +21,10 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm system:test
       - run: node scripts/system-test.mjs --google
-      - run: pnpm package
+      - run: pnpm build:release && node scripts/package.mjs --manual-test
       - uses: actions/upload-artifact@v4
         with:
-          name: storycursor
+          name: storycursor-manual-test
           path: |
             dist/release/storycursor-*.zip
             dist/release/sheets-script/

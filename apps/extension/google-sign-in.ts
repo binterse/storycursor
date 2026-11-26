@@ -1,4 +1,5 @@
 import { validConfig, type Config } from './sync';
+import { signInError } from '../../packages/core/sign-in';
 
 const hex = (value: Uint8Array) => Array.from(value, byte => byte.toString(16).padStart(2, '0')).join('');
 const isCode = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{32}$/.test(value);
@@ -47,7 +48,7 @@ async function readCallback(tabId: number, state: string) {
     if (response?.state !== state) continue;
     await chrome.tabs.remove(tabId).catch(() => {});
     if (response.status === 'ready' && isCode(response.browserCode)) return response.browserCode;
-    throw new Error('This Google account could not connect to StoryCursor.');
+    throw new Error(signInError(response?.reason));
   }
   throw new Error('Google sign-in expired. Try again.');
 }

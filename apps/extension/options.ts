@@ -5,52 +5,43 @@ import { config, remote, validConfig, type Config, type FolderChoice } from './s
 
 const content = element('section');
 
-async function connect(connection: Config, showDefault = false) {
+async function connect(connection: Config, requireFolder = false) {
   if (!validConfig(connection)) throw new Error('Enter the deployment URL and service token.');
   const service = remote(connection);
   const folderSetup = await service.folderSetup();
   if (folderSetup) {
-    if (showDefault && renderDefaultFolder(connection, folderSetup)) return;
     renderFolders(connection, folderSetup);
     return;
   }
+  if (requireFolder) throw new Error('The sync service needs a configured Drive folder.');
   await finish(connection);
 }
 
-function renderDefaultFolder(connection: Config, choices: FolderChoice[]) {
-  const existing = choices.filter(choice => choice.id !== 'new' && choice.name === 'StoryCursor');
-  const suggested = existing.length === 1 ? existing[0] : existing.length === 0 ? choices.find(choice => choice.id === 'new') : undefined;
-  if (!suggested) return false;
-  report('');
-  content.replaceChildren();
-  element('h2', 'Save to Google Drive', content);
-  element('p', suggested.id === 'new' ? 'Create a StoryCursor folder in My Drive.' : 'Use your existing StoryCursor folder.', content);
-  action('Use StoryCursor folder', async () => {
-    await remote(connection).useFolder(suggested.id, suggested.name);
-    await finish(connection);
-  }, content).className = 'primary';
-  action('Choose another folder', async () => renderFolders(connection, choices, true), content);
-  return true;
-}
-
 async function finish(connection: Config) {
-  connection.binding = await remote(connection).check();
-  await chrome.storage.local.set({ connection });
+  const binding = await remote(connection).check();
+  if (connection.binding && connection.binding !== binding) throw new Error('The workbook changed. Choose the folder again.');
+  connection.binding = binding;
+  await chrome.storage.local.set({ connection, lastEndpoint: connection.endpoint });
   report('Connected. You can return to your reading tab.');
   await render();
 }
 
-function renderFolders(connection: Config, choices: FolderChoice[], backToDefault = false) {
+function renderFolders(connection: Config, choices: FolderChoice[]) {
   report('');
   content.replaceChildren();
   element('h2', 'Choose a Google Drive folder', content);
   const folder = element('select', '', element('label', 'Folder', content));
   for (const item of choices) folder.add(new Option(item.label, item.id));
-  const defaults = choices.filter(item => item.id !== 'new' && item.name === 'StoryCursor');
-  if (defaults.length > 1) {
+  const defaults = choices.filter(item => item.id !== 'new' && item.name === (connection.folderName ?? 'StoryCursor'));
+  const current = choices.find(item => item.id === connection.folderId || item.id === connection.binding);
+  if (current) {
+    folder.value = current.id;
+  } else if (!choices.some(item => item.id === 'new') && choices[0]) {
+    folder.value = choices[0].id;
+  } else if (defaults.length > 1) {
     folder.add(new Option('Choose a folder…', '', true, true), 0);
   } else {
-    folder.value = defaults[0]?.id ?? 'new';
+    folder.value = defaults[0]?.id ?? choices.find(item => item.id === 'new')?.id ?? choices[0]?.id ?? '';
   }
   const newName = input('New folder name', content, 'StoryCursor');
   newName.maxLength = 100;
@@ -60,21 +51,30 @@ function renderFolders(connection: Config, choices: FolderChoice[], backToDefaul
   action('Use folder', async () => {
     const item = choices.find(choice => choice.id === folder.value);
     if (!item) throw new Error('Select a folder.');
-    await remote(connection).useFolder(item.id, item.id === 'new' ? newName.value.trim() : item.name);
-    await finish(connection);
+    const name = item.id === 'new' ? newName.value.trim() : item.name;
+    const binding = await remote(connection).useFolder(item.id, name);
+    if (!choices.some(choice => choice.id === 'new') && binding !== item.id) throw new Error('The service confirmed a different folder.');
+    await finish({ ...connection, binding, folderName: name, folderId: item.id === 'new' ? undefined : item.id });
   }, content).className = 'primary';
-  action('Back', async () => {
-    if (!backToDefault || !renderDefaultFolder(connection, choices)) await render();
-  }, content);
+  if (connection.folderName) action('Cancel', render, content);
 }
 
 async function render() {
   content.replaceChildren();
-  const connection = await config();
-  if (connection) {
+  const connection = await config(true);
+  if (connection?.expiresAt && !connection.folderName) {
+    try { await connect(connection, true); return; }
+    catch { report('Please sign in again to choose your Drive folder.'); }
+  }
+  if (connection && (!connection.expiresAt || connection.folderName)) {
     element('p', 'Google Sheets connected', content);
+    if (connection.folderName) {
+      element('p', connection.folderName, content);
+      action('Change folder', () => connect(connection, true), content);
+    }
     action('Disconnect', async () => {
       if (!window.confirm('Disconnect on this device? Your files and queued operations will stay.')) return;
+      await chrome.storage.local.set({ lastEndpoint: connection.endpoint });
       await chrome.storage.local.remove('connection');
       report('Disconnected on this device.');
       await render();
@@ -90,11 +90,14 @@ async function render() {
   if (STORYCURSOR_GOOGLE_ENDPOINT) {
     action('Sign in with Google', async () => {
       report('Complete sign-in in the Google tab.');
-      await connect(await googleSignIn(STORYCURSOR_GOOGLE_ENDPOINT), true);
+      const session = await googleSignIn(STORYCURSOR_GOOGLE_ENDPOINT);
+      await chrome.storage.local.set({ connection: session });
+      await connect(session, true);
     }, content).className = 'primary';
     setup = details('Advanced setup', content);
   }
-  const endpoint = input('Deployment URL', setup, '', 'url');
+  const { lastEndpoint } = await chrome.storage.local.get('lastEndpoint');
+  const endpoint = input('Deployment URL', setup, typeof lastEndpoint === 'string' ? lastEndpoint : STORYCURSOR_GOOGLE_ENDPOINT, 'url');
   const token = input('Service token', setup, '', 'password');
   token.autocomplete = 'off';
   action('Continue', async () => {
